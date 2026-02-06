@@ -1,0 +1,46 @@
+{
+    "NPC_dialog": {
+        "Boogie": {
+            "neutral": {
+                "neutral_1": "What do you want?",
+                "neutral_2": "Good to see you again.",
+                "neutral_3": "Sup.",
+                "neutral_4": "hm? didnt see you there.",
+                "neutral_Custom": "[generated response with google gemini]"
+            },
+            "Gluttonous": {
+                "gluttonous_1": "I'm so hungry!",
+                "gluttonous_2": "I'm so full!",
+                "gluttonous_3": "My belly is gonna burst!",
+                "gluttonous_4": "I'm so tired...",
+                "gluttonous_Custom": "[generated response with google gemini]"
+            },
+            "bashful": {
+                "bashful_1": "Dawww~",
+                "bashful_2": "Pffft! I'm not blushing!",
+                "bashful_3": "Is it hot in here? I'm starting to sweat...",
+                "bashful_Custom": "[generated response with google gemini]"
+            },
+            "energized": {
+                "energized_1": "Dude thats Amazing!",
+                "energized_2": "Fuck yeah!",
+                "energized_3": "Oh boy oh boy oh boy!",
+                "energized_4": "Swwweeeat!!!",
+                "energized_Custom": "[generated response with google gemini]"
+            },
+            "grumpy": {
+                "grumpy_1": "Ugh, what do you want?",
+                "grumpy_2": "Leave me alone.",
+                "grumpy_3": "Gross!",
+                "grumpy_4": "Dick move.",
+                "grumpy_Custom": "[generated response with google gemini]"
+            },
+            "sad": {
+                "sad_1": "Not today dude...",
+                "sad_2": "I'm so lonely...",
+                "sad_3": "I'm so tired...",
+                "sad_Custom": "[generated response with google gemini]"
+            }
+        }
+    }
+}

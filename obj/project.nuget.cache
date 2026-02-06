@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "Kp5FbYM67C0=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\drake\\Documents\\Antigrav Google\\LifeSim\\LifeSim.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\drake\\.nuget\\packages\\raylib-cs\\7.0.2\\raylib-cs.7.0.2.nupkg.sha512"
+  ],
+  "logs": []
+}
