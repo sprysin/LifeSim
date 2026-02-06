@@ -9,6 +9,7 @@ namespace LifeSim
     {
         private static readonly HttpClient httpClient = new HttpClient();
         private static string? apiKey = null;
+        // the model I am using is gemini-2.0-flash
         private const string API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
         public static bool IsInitialized => !string.IsNullOrEmpty(apiKey);

@@ -20,3 +20,4 @@ C:\Users\drake\Documents\Antigrav Google\LifeSim\obj\Debug\net8.0\refint\LifeSim
 C:\Users\drake\Documents\Antigrav Google\LifeSim\obj\Debug\net8.0\LifeSim.pdb
 C:\Users\drake\Documents\Antigrav Google\LifeSim\obj\Debug\net8.0\LifeSim.genruntimeconfig.cache
 C:\Users\drake\Documents\Antigrav Google\LifeSim\obj\Debug\net8.0\ref\LifeSim.dll
+C:\Users\drake\Documents\Antigrav Google\LifeSim\obj\Debug\net8.0\LifeSim.sourcelink.json

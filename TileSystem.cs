@@ -72,6 +72,10 @@ namespace LifeSim
         private static Image InteractionLayer;
         private static bool HasInteractionLayer = false;
 
+        // Foreground Layer (rendered on top of player)
+        private static Texture2D ForegroundTexture;
+        private static bool HasForeground = false;
+
         // Simple 10x10 room grid (default)
         public static int GridWidth = 10;
         public static int GridHeight = 10;
@@ -105,8 +109,13 @@ namespace LifeSim
             // Add Boogie
             kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "Leave me be.", "Visual Novel Images/MC/main_char_full_body.png", "Character_Sheets/boogie_sprite_sheet.png", 1.0f));
 
+            // Living Room
+            SceneData livingRoom = new SceneData("Living Room", "Tilesets/Living_room.png", "Tilesets/interaction Layer_Living_room.png", new Vector2(4, 5), 1);
+            livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "Leave me be.", "Visual Novel Images/MC/main_char_full_body.png", "Character_Sheets/boogie_sprite_sheet.png", 1.0f));
+
             Scenes.Add(debugRoom);
             Scenes.Add(kitchen);
+            Scenes.Add(livingRoom);
 
             // Metatile Setup
             Metatiles["Rug"] = new Metatile(2, 2, new int[] { 18, 19, 26, 27 });
@@ -130,6 +139,11 @@ namespace LifeSim
                 Raylib.UnloadImage(InteractionLayer);
                 HasInteractionLayer = false;
             }
+            if (HasForeground)
+            {
+                Raylib.UnloadTexture(ForegroundTexture);
+                HasForeground = false;
+            }
 
             // Load new background
             if (System.IO.File.Exists(data.BgPath))
@@ -144,6 +158,9 @@ namespace LifeSim
             {
                 InteractionLayer = Raylib.LoadImage(data.InteractionPath);
                 HasInteractionLayer = true;
+
+                // Extract Foreground Layer
+                ExtractForegroundLayer(data.BgPath);
             }
 
             // Reset NPCs if list provided
@@ -202,8 +219,8 @@ namespace LifeSim
                 {
                     Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
 
-                    // Check for RED #FF0059FF (Blocked)
-                    if (pixelColor.R == 255 && pixelColor.G == 0 && pixelColor.B == 89)
+                    // Check for BLOCKED #ed1c5c (R:237, G:28, B:92)
+                    if (pixelColor.R == 237 && pixelColor.G == 28 && pixelColor.B == 92)
                     {
                         return false;
                     }
@@ -216,11 +233,60 @@ namespace LifeSim
                     }
 
                     // Check for MAGENTA #D900FFFF (Exit) -> Walkable but triggers transition
-                    // Actually, if it's an exit, it should be walkable.
+                    // if it's an exit, it should be walkable.
                 }
             }
 
             return true;
+        }
+
+        private static void ExtractForegroundLayer(string bgPath)
+        {
+            if (!HasInteractionLayer || !System.IO.File.Exists(bgPath))
+            {
+                HasForeground = false;
+                return;
+            }
+
+            // Load background image
+            Image bgImage = Raylib.LoadImage(bgPath);
+
+            // Create blank image for foreground (same size as background)
+            Image foregroundImage = Raylib.GenImageColor(bgImage.Width, bgImage.Height, Color.Blank);
+
+            // Scan interaction layer for foreground markers (#e4a209)
+            bool foundForeground = false;
+            for (int y = 0; y < InteractionLayer.Height && y < bgImage.Height; y++)
+            {
+                for (int x = 0; x < InteractionLayer.Width && x < bgImage.Width; x++)
+                {
+                    Color interactionPixel = Raylib.GetImageColor(InteractionLayer, x, y);
+
+                    // Check if pixel is foreground marker #e4a209 (R:228, G:162, B:9)
+                    if (interactionPixel.R == 228 && interactionPixel.G == 162 && interactionPixel.B == 9)
+                    {
+                        // Copy background pixel to foreground
+                        Color bgPixel = Raylib.GetImageColor(bgImage, x, y);
+                        Raylib.ImageDrawPixel(ref foregroundImage, x, y, bgPixel);
+                        foundForeground = true;
+                    }
+                }
+            }
+
+            // Only create texture if we found foreground pixels
+            if (foundForeground)
+            {
+                ForegroundTexture = Raylib.LoadTextureFromImage(foregroundImage);
+                HasForeground = true;
+            }
+            else
+            {
+                HasForeground = false;
+            }
+
+            // Cleanup
+            Raylib.UnloadImage(foregroundImage);
+            Raylib.UnloadImage(bgImage);
         }
 
         public static bool IsTerminal(int gridX, int gridY)
@@ -268,8 +334,31 @@ namespace LifeSim
             {
                 Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
 
-                // #D900FFFF -> R:217, G:0, B:255
-                if (pixelColor.R == 217 && pixelColor.G == 0 && pixelColor.B == 255)
+                // #cc33cc -> R:204, G:51, B:204
+                if (pixelColor.R == 204 && pixelColor.G == 51 && pixelColor.B == 204)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public static bool IsSitSpot(int gridX, int gridY)
+        {
+            if (!HasInteractionLayer) return false;
+
+            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight)
+                return false;
+
+            int pixelX = gridX * TileSize + (TileSize / 2);
+            int pixelY = gridY * TileSize + (TileSize / 2);
+
+            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
+            {
+                Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
+                // #b3f237 -> R:179, G:242, B:55
+                if (pixelColor.R == 179 && pixelColor.G == 242 && pixelColor.B == 55)
                 {
                     return true;
                 }
@@ -363,6 +452,17 @@ namespace LifeSim
                     Raylib.DrawTexturePro(MasterTileset, source, dest, Vector2.Zero, 0f, Color.White);
                 }
             }
+        }
+
+
+        public static void DrawForeground()
+        {
+            if (!HasForeground) return;
+
+            int scale = 4;
+            Rectangle source = new Rectangle(0, 0, ForegroundTexture.Width, ForegroundTexture.Height);
+            Rectangle dest = new Rectangle(0, 0, ForegroundTexture.Width * scale, ForegroundTexture.Height * scale);
+            Raylib.DrawTexturePro(ForegroundTexture, source, dest, Vector2.Zero, 0f, Color.White);
         }
 
 

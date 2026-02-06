@@ -9,6 +9,7 @@ namespace LifeSim
         public enum GameState
         {
             Menu,
+            DebugLocationMenu,
             Exploring,
             Dialogue,
             Terminal
@@ -17,6 +18,7 @@ namespace LifeSim
         public static GameState CurrentState = GameState.Menu;
         private List<NPC> npcs = new List<NPC>();
         private int menuSelection = 0;
+        private int debugLocationSelection = 0;
 
         // Transition State
         private float fadeAlpha = 0f;
@@ -47,24 +49,48 @@ namespace LifeSim
 
                     if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter))
                     {
-                        if (menuSelection == 0) // Start (Kitchen)
+                        if (menuSelection == 0) // Start (Living Room)
                         {
-                            TileSystem.LoadScene(1, player, npcs); // Index 1 is Kitchen
+                            TileSystem.LoadScene(2, player, npcs); // Index 2 is Living Room
                             CurrentState = GameState.Exploring;
                             isExiting = false;
                             fadeAlpha = 0f;
                         }
-                        else if (menuSelection == 1) // Debug Room
+                        else if (menuSelection == 1) // Debug Room -> Show Location Menu
                         {
-                            TileSystem.LoadScene(0, player, npcs); // Index 0 is Debug Room
-                            CurrentState = GameState.Exploring;
-                            isExiting = false;
-                            fadeAlpha = 0f;
+                            CurrentState = GameState.DebugLocationMenu;
+                            debugLocationSelection = 0;
                         }
                         else if (menuSelection == 2) // Quit
                         {
                             break;
                         }
+                    }
+                }
+                else if (CurrentState == GameState.DebugLocationMenu)
+                {
+                    if (Raylib.IsKeyPressed(KeyboardKey.Down)) debugLocationSelection = (debugLocationSelection + 1) % 2;
+                    if (Raylib.IsKeyPressed(KeyboardKey.Up)) debugLocationSelection = (debugLocationSelection + 1) % 2;
+
+                    if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter))
+                    {
+                        if (debugLocationSelection == 0) // Debug Room
+                        {
+                            TileSystem.LoadScene(0, player, npcs); // Index 0 is Debug Room
+                        }
+                        else // Kitchen
+                        {
+                            TileSystem.LoadScene(1, player, npcs); // Index 1 is Kitchen
+                        }
+                        CurrentState = GameState.Exploring;
+                        isExiting = false;
+                        fadeAlpha = 0f;
+                    }
+
+                    // Back to main menu with Escape
+                    if (Raylib.IsKeyPressed(KeyboardKey.Escape))
+                    {
+                        CurrentState = GameState.Menu;
                     }
                 }
                 else if (CurrentState == GameState.Exploring)
@@ -153,6 +179,10 @@ namespace LifeSim
                 {
                     UISystem.DrawHomeMenu(menuSelection);
                 }
+                else if (CurrentState == GameState.DebugLocationMenu)
+                {
+                    UISystem.DrawDebugLocationMenu(debugLocationSelection);
+                }
                 else
                 {
                     // Begin World Space
@@ -170,6 +200,9 @@ namespace LifeSim
 
                     // Draw Player
                     player.Draw();
+
+                    // Draw Foreground Layer (on top of player/NPCs)
+                    TileSystem.DrawForeground();
 
                     if (CurrentState == GameState.Exploring && !isExiting)
                     {

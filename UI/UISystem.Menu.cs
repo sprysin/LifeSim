@@ -108,5 +108,70 @@ namespace LifeSim
                 Raylib.DrawLine(0, y, screenW, y, gridColor);
             }
         }
+
+        public static void DrawDebugLocationMenu(int selection)
+        {
+            int screenW = Raylib.GetScreenWidth();
+            int screenH = Raylib.GetScreenHeight();
+
+            // Draw background
+            DrawMenuBackground();
+
+            // Render to buffer
+            Raylib.BeginTextureMode(UIBuffer);
+            Raylib.ClearBackground(Color.Blank);
+
+            // Title
+            Vector2 titleSize = Raylib.MeasureTextEx(FontMedium, "Choose Location", 24, 0);
+            Raylib.DrawTextEx(FontMedium, "Choose Location", new Vector2((VirtualWidth - titleSize.X) / 2, 20), 24, 0, Color.White);
+
+            // Options
+            string[] options = { "Debug Room", "Kitchen" };
+            int startY = 60;
+            int spacing = 25;
+
+            for (int i = 0; i < options.Length; i++)
+            {
+                bool isSelected = (i == selection);
+                string text = options[i];
+
+                int btnW = 120;
+                int btnH = 20;
+                Rectangle btnRect = new Rectangle((VirtualWidth - btnW) / 2, startY + (i * spacing), btnW, btnH);
+
+                Color btnColor = isSelected ? Color.White : new Color(0, 0, 0, 200);
+                Color textColor = isSelected ? Color.Black : Color.White;
+                Color borderColor = Color.White;
+
+                if (!isSelected)
+                {
+                    Raylib.DrawRectangle((int)btnRect.X + 2, (int)btnRect.Y + 2, (int)btnRect.Width, (int)btnRect.Height, new Color(0, 0, 0, 100));
+                }
+
+                Raylib.DrawRectangleRec(btnRect, btnColor);
+                Raylib.DrawRectangleLinesEx(btnRect, 1, borderColor);
+
+                Vector2 textSize = Raylib.MeasureTextEx(FontSmall, text, 12, 0);
+                Vector2 textPos = new Vector2(btnRect.X + (btnRect.Width - textSize.X) / 2, btnRect.Y + (btnRect.Height - textSize.Y) / 2);
+                Raylib.DrawTextEx(FontSmall, text, textPos, 12, 0, textColor);
+
+                if (isSelected)
+                {
+                    Raylib.DrawTextEx(FontSmall, ">", new Vector2(btnRect.X - 15, btnRect.Y + 4), 12, 0, Color.White);
+                    Raylib.DrawTextEx(FontSmall, "<", new Vector2(btnRect.X + btnRect.Width + 5, btnRect.Y + 4), 12, 0, Color.White);
+                }
+            }
+
+            // Instructions
+            Vector2 instrSize = Raylib.MeasureTextEx(FontTiny, "ESC to go back", 10, 0);
+            Raylib.DrawTextEx(FontTiny, "ESC to go back", new Vector2((VirtualWidth - instrSize.X) / 2, VirtualHeight - 20), 10, 0, new Color(150, 150, 150, 255));
+
+            Raylib.EndTextureMode();
+
+            // Draw to screen
+            Rectangle dest = new Rectangle(0, 0, screenW, screenH);
+            Rectangle flipSrc = new Rectangle(0, 0, UIBuffer.Texture.Width, -UIBuffer.Texture.Height);
+            Raylib.DrawTexturePro(UIBuffer.Texture, flipSrc, dest, Vector2.Zero, 0f, Color.White);
+        }
     }
 }
