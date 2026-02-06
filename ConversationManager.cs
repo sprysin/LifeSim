@@ -8,9 +8,12 @@ namespace LifeSim
         private List<ChatMessage> history = new List<ChatMessage>();
         private string npcName;
 
-        public ConversationManager(string npcName)
+        public MoodWeights MoodWeights { get; set; }
+
+        public ConversationManager(string npcName, MoodWeights? customWeights = null)
         {
             this.npcName = npcName;
+            MoodWeights = customWeights ?? new MoodWeights(); // Use default if not provided
         }
 
         public void AddUserMessage(string text)
@@ -43,52 +46,6 @@ namespace LifeSim
             while (history.Count > MaxHistorySize)
             {
                 history.RemoveAt(0);
-            }
-        }
-
-        public string ShiftMood(string currentMood, string sentiment)
-        {
-            // Mood transition logic based on sentiment
-            // sentiment: "positive", "negative", "neutral"
-
-            // Define mood transitions
-            // Positive sentiment tends toward: energized, bashful
-            // Negative sentiment tends toward: grumpy, sad
-            // Neutral keeps or slowly resets
-
-            switch (sentiment)
-            {
-                case "positive":
-                    return currentMood switch
-                    {
-                        "grumpy" => "neutral",      // Softens grumpiness
-                        "sad" => "neutral",         // Cheers up
-                        "neutral" => "energized",   // Gets excited
-                        "energized" => "energized", // Stays excited
-                        "bashful" => "bashful",     // Stays bashful
-                        _ => "energized"
-                    };
-
-                case "negative":
-                    return currentMood switch
-                    {
-                        "energized" => "neutral",   // Deflates
-                        "bashful" => "sad",         // Gets sad
-                        "neutral" => "grumpy",      // Gets annoyed
-                        "grumpy" => "grumpy",       // Stays grumpy
-                        "sad" => "sad",             // Stays sad
-                        _ => "grumpy"
-                    };
-
-                case "neutral":
-                default:
-                    // Slowly drift back to neutral
-                    return currentMood switch
-                    {
-                        "grumpy" => "neutral",
-                        "energized" => "neutral",
-                        _ => currentMood // Keep current mood
-                    };
             }
         }
     }

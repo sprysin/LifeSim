@@ -42,6 +42,7 @@ namespace LifeSim
         private static bool isWaitingForAI = false;
         private static float thinkingDots = 0f;
         private static Task<string?>? pendingAITask = null;
+        private static bool isActionMode = false; // Track if input is an action
 
         public static void OpenDialogue(string name, string text, string portraitPath = "")
         {
@@ -255,16 +256,21 @@ namespace LifeSim
         {
             if (currentDialogueNPC == null) return;
 
+            // Wrap message in asterisks if in action mode
+            string finalMessage = isActionMode ? $"*{message}*" : message;
+
             if (currentDialogueNPC.CharacterData != null)
             {
                 isWaitingForAI = true;
                 thinkingDots = 0f;
-                pendingAITask = currentDialogueNPC.GetAIResponseAsync(message);
+                pendingAITask = currentDialogueNPC.GetAIResponseAsync(finalMessage);
             }
             else
             {
                 ShowStaticResponse("(No AI response available)");
             }
+
+            isActionMode = false; // Reset mode after submit
         }
 
         private static void ShowStaticResponse(string text)
@@ -284,20 +290,25 @@ namespace LifeSim
                 case 0: // Respond
                     showTextInput = true;
                     inputText = "";
+                    isActionMode = false;
                     currentText = "Type your message...";
                     charIndex = currentText.Length;
                     break;
 
                 case 1: // Action
-                    ShowStaticResponse("(Actions not yet implemented)");
+                    showTextInput = true;
+                    inputText = "";
+                    isActionMode = true;
+                    currentText = "Type your action...";
+                    charIndex = currentText.Length;
                     break;
 
-                case 2: // What's on your Mind?
+                case 2: // What's on your Mind? this feature allows the NPC to continue speaking without player input
                     if (currentDialogueNPC?.CharacterData != null)
                     {
                         isWaitingForAI = true;
                         thinkingDots = 0f;
-                        pendingAITask = currentDialogueNPC.GetAIResponseAsync("What's on your mind right now?");
+                        pendingAITask = currentDialogueNPC.GetAIResponseAsync("*Continue speaking on what you were just saying, or whatever else is on your mind. the player did not speak, you are doing this on your own accord*");
                     }
                     else
                     {
@@ -393,7 +404,7 @@ namespace LifeSim
                 Raylib.DrawRectangleLinesEx(panelRect, 1, Color.White);
             }
 
-            // Name tag
+            // 1. Name Tag Box
             if (!string.IsNullOrEmpty(currentName))
             {
                 Vector2 nameSize = Raylib.MeasureTextEx(FontSmall, currentName, 12, 0);
@@ -402,7 +413,7 @@ namespace LifeSim
                 Raylib.DrawRectangleLinesEx(nameRect, 1, Color.White);
             }
 
-            // Close button
+            // [Z] Close Button Box (Top Right)
             int closeBtnX = BoxX + boxW - CloseBtnSize - 4;
             int closeBtnY = BoxY + 4;
             Rectangle closeBtnRect = new Rectangle(closeBtnX, closeBtnY, CloseBtnSize, CloseBtnSize);
@@ -412,7 +423,8 @@ namespace LifeSim
             // Text input box
             if (showTextInput)
             {
-                Rectangle inputRect = new Rectangle(BoxX + 8, BoxY + 25, boxW - 16, 20);
+                // the boW - 16 in this code string represents the text input box width
+                Rectangle inputRect = new Rectangle(BoxX + 7, BoxY + 21, boxW - 16, 22);
                 Raylib.DrawRectangleRec(inputRect, new Color(30, 30, 30, 255));
                 Raylib.DrawRectangleLinesEx(inputRect, 1, Color.Yellow);
             }
@@ -526,11 +538,87 @@ namespace LifeSim
         private static void DrawMainDialogue(int boxW, float offX, float offY, float scale)
         {
             string visibleText = currentText.Substring(0, charIndex);
-            float maxTextWidth = boxW - 10 - 58;
-            string wrappedText = WrapText(visibleText, maxTextWidth);
+            // FIXED: Scale the max width to match screen coordinates
+            float maxTextWidth = (boxW - 10 - 58) * scale;
 
-            Vector2 mainTextPos = new Vector2(offX + ((BoxX + 10) * scale), offY + ((BoxY + 8) * scale));
-            Raylib.DrawTextEx(FontHuge, wrappedText, mainTextPos, 12 * scale, 1 * scale, Color.White);
+            float fontSize = 12 * scale;
+            float spacing = 1 * scale;
+            float lineHeight = fontSize + 2 * scale; // Spacing between lines
+
+            Vector2 startPos = new Vector2(offX + ((BoxX + 10) * scale), offY + ((BoxY + 8) * scale));
+            Vector2 currentPos = startPos;
+            float leftMarginX = startPos.X; // Capture absolute left margin for wrapping
+
+            // Parse text for asterisk-wrapped actions
+            bool inAction = false;
+            string currentSegment = "";
+
+            foreach (char c in visibleText)
+            {
+                if (c == '*')
+                {
+                    // Draw accumulated segment before switching mode
+                    if (currentSegment.Length > 0)
+                    {
+                        DrawTextSegment(ref currentPos, currentSegment, maxTextWidth, leftMarginX, fontSize, spacing, lineHeight, inAction ? Color.Yellow : Color.White);
+                        currentSegment = "";
+                    }
+                    inAction = !inAction; // Toggle action mode
+                }
+                else
+                {
+                    currentSegment += c;
+                }
+            }
+
+            // Draw remaining segment
+            if (currentSegment.Length > 0)
+            {
+                DrawTextSegment(ref currentPos, currentSegment, maxTextWidth, leftMarginX, fontSize, spacing, lineHeight, inAction ? Color.Yellow : Color.White);
+            }
+        }
+
+        private static void DrawTextSegment(ref Vector2 position, string segment, float maxWidth, float leftMarginX, float fontSize, float spacing, float lineHeight, Color color)
+        {
+            string[] words = segment.Split(' ');
+            string lineBuffer = "";
+            bool firstWord = true;
+
+            foreach (var word in words)
+            {
+                string separator = firstWord ? "" : " ";
+                string testLine = lineBuffer + separator + word;
+                Vector2 size = Raylib.MeasureTextEx(FontHuge, testLine, fontSize, spacing);
+
+                float currentLineEndX = position.X + size.X;
+                float rightLimitX = leftMarginX + maxWidth;
+
+                if (currentLineEndX > rightLimitX && lineBuffer.Length > 0)
+                {
+                    // Draw current line and move to next
+                    Raylib.DrawTextEx(FontHuge, lineBuffer, position, fontSize, spacing, color);
+                    position.X = leftMarginX; // Reset to margin
+                    position.Y += lineHeight;
+                    lineBuffer = word;
+                    firstWord = false;
+                }
+                else
+                {
+                    lineBuffer = testLine;
+                    firstWord = false;
+                }
+            }
+
+            // Draw remaining text and update position
+            if (lineBuffer.Length > 0)
+            {
+                Vector2 size = Raylib.MeasureTextEx(FontHuge, lineBuffer, fontSize, spacing);
+                Raylib.DrawTextEx(FontHuge, lineBuffer, position, fontSize, spacing, color);
+
+                // Move cursor for inline continuation
+                // Use MeasureTextEx for consistency
+                position.X += size.X;
+            }
         }
 
         private static void DrawOptionsMenuText(int boxW, float offX, float offY, float scale)

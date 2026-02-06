@@ -127,39 +127,115 @@ namespace LifeSim
             }
         }
 
-        public static string AnalyzeSentiment(string message)
+        public static async Task<string> SelectMoodAsync(
+            string userMessage,
+            string currentMood,
+            MoodWeights weights)
         {
-            // Simple keyword-based sentiment analysis
-            // Returns: "positive", "negative", or "neutral"
-
-            string lower = message.ToLower();
-
-            // Positive keywords
-            string[] positiveWords = { "love", "like", "great", "awesome", "amazing", "happy",
-                "good", "nice", "thank", "thanks", "cool", "sweet", "beautiful", "wonderful",
-                "best", "fun", "excited", "joy", "glad", "appreciate", "cute", "adorable" };
-
-            // Negative keywords  
-            string[] negativeWords = { "hate", "dislike", "bad", "awful", "terrible", "sad",
-                "angry", "annoyed", "stupid", "dumb", "ugly", "worst", "boring", "mean",
-                "suck", "horrible", "disgusting", "pathetic", "leave", "go away", "shut up" };
-
-            int positiveScore = 0;
-            int negativeScore = 0;
-
-            foreach (var word in positiveWords)
+            if (!IsInitialized)
             {
-                if (lower.Contains(word)) positiveScore++;
+                return "no_change"; // Can't analyze without API
             }
 
-            foreach (var word in negativeWords)
+            try
             {
-                if (lower.Contains(word)) negativeScore++;
-            }
+                // Build prompt for mood selection
+                string systemPrompt = @"You are analyzing a player's message to determine the best emotional reaction for an NPC character.
 
-            if (positiveScore > negativeScore) return "positive";
-            if (negativeScore > positiveScore) return "negative";
-            return "neutral";
+Your task: Choose ONE mood from the available options that best fits as the NPC's emotional response to what the player said.
+
+Rules:
+1. Respond with ONLY the mood name (e.g., 'bashful' or 'no_change')
+2. Consider the mood weights - higher weight moods are more appropriate/likely
+3. Choose 'no_change' if the current mood is still appropriate
+4. Be realistic - not every message needs a mood change
+5. Match the intensity of the player's message";
+
+                string userPrompt = $@"Player said: ""{userMessage}""
+
+Current NPC mood: {currentMood}
+
+Available moods:
+{weights.GetWeightsDescription()}
+
+What mood should the NPC react with? (respond with only the mood name)";
+
+                // Build request
+                var requestBody = new
+                {
+                    system_instruction = new
+                    {
+                        parts = new[] { new { text = systemPrompt } }
+                    },
+                    contents = new[]
+                    {
+                        new
+                        {
+                            role = "user",
+                            parts = new[] { new { text = userPrompt } }
+                        }
+                    },
+                    generationConfig = new
+                    {
+                        temperature = 0.7, // Slightly lower for more consistent choices
+                        maxOutputTokens = 20, // Just need one word
+                        topP = 0.9
+                    }
+                };
+
+                string jsonBody = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+                string url = $"{API_URL}?key={apiKey}";
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[GeminiService] Mood Selection Error: {response.StatusCode} - {errorBody}");
+                    return "no_change";
+                }
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                // Parse response
+                using (JsonDocument doc = JsonDocument.Parse(responseBody))
+                {
+                    JsonElement root = doc.RootElement;
+
+                    if (root.TryGetProperty("candidates", out JsonElement candidates) &&
+                        candidates.GetArrayLength() > 0)
+                    {
+                        var firstCandidate = candidates[0];
+                        if (firstCandidate.TryGetProperty("content", out JsonElement contentElem) &&
+                            contentElem.TryGetProperty("parts", out JsonElement parts) &&
+                            parts.GetArrayLength() > 0)
+                        {
+                            var firstPart = parts[0];
+                            if (firstPart.TryGetProperty("text", out JsonElement textElem))
+                            {
+                                string selectedMood = textElem.GetString()?.Trim().ToLower() ?? "no_change";
+
+                                // Validate the mood is in our list or is "no_change"
+                                if (selectedMood == "no_change" || weights.Weights.ContainsKey(selectedMood))
+                                {
+                                    return selectedMood;
+                                }
+
+                                Console.WriteLine($"[GeminiService] AI selected invalid mood: {selectedMood}, defaulting to no_change");
+                                return "no_change";
+                            }
+                        }
+                    }
+                }
+
+                return "no_change";
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[GeminiService] Mood Selection Exception: {e.Message}");
+                return "no_change";
+            }
         }
     }
 

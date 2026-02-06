@@ -25,7 +25,7 @@ namespace LifeSim
         private Direction currentDir = Direction.Down;
         private bool isMoving = false;
 
-        // Sprite Sheet Details (Same valid for Boogie and Main Char)
+        // Sprite Sheet Details
         private const int GapX = 1;
         private const int GapY = 8;
         private const int SheetColumns = 16;
@@ -155,20 +155,28 @@ namespace LifeSim
 
             try
             {
-                // Analyze sentiment and shift mood
-                string sentiment = GeminiService.AnalyzeSentiment(userMessage);
-                string newMood = Conversation.ShiftMood(CurrentMood, sentiment);
+                // Step 1: Let AI select the best mood for this interaction
+                string selectedMood = await GeminiService.SelectMoodAsync(
+                    userMessage,
+                    CurrentMood,
+                    Conversation.MoodWeights
+                );
 
-                if (newMood != CurrentMood)
+                // Update mood if AI suggested a change
+                if (selectedMood != "no_change" && selectedMood != CurrentMood)
                 {
-                    Console.WriteLine($"[NPC] {Name} mood shifted: {CurrentMood} -> {newMood} (sentiment: {sentiment})");
-                    CurrentMood = newMood;
+                    Console.WriteLine($"[NPC] {Name} mood shifted: {CurrentMood} -> {selectedMood}");
+                    CurrentMood = selectedMood;
+                }
+                else if (selectedMood == "no_change")
+                {
+                    Console.WriteLine($"[NPC] {Name} keeping mood: {CurrentMood}");
                 }
 
-                // Add user message to history
+                // Step 2: Add user message to history
                 Conversation.AddUserMessage(userMessage);
 
-                // Get AI response
+                // Step 3: Get AI response with the (possibly new) mood
                 string response = await GeminiService.GenerateResponseAsync(
                     CharacterData,
                     CurrentMood,
@@ -176,7 +184,7 @@ namespace LifeSim
                     userMessage
                 );
 
-                // Add AI response to history
+                // Step 4: Add AI response to history
                 Conversation.AddModelMessage(response);
 
                 return response;
