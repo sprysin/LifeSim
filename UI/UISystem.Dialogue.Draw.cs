@@ -1,5 +1,7 @@
 using Raylib_cs;
 using System.Numerics;
+using System;
+using System.Collections.Generic;
 
 namespace LifeSim
 {
@@ -29,406 +31,6 @@ namespace LifeSim
         private const float MoodShakeDuration = 0.3f;
         private const float MoodShakeIntensity = 5.0f;
         private const float MoodShakeSpeed = 30.0f;
-
-        // Dialogue State
-        public static bool IsOpen = false;
-        private static string currentText = "";
-        private static string currentName = "";
-        private static float typeTimer = 0f;
-        private static int charIndex = 0;
-
-        // Chat Log State
-        private static bool showChatLog = false;
-        private static List<(string Name, string Text)> conversationHistory = new List<(string Name, string Text)>();
-        private static float chatLogScroll = 0f;
-        private static float chatLogContentHeight = 0f;
-
-        // Options Menu State
-        private static bool showOptionsMenu = false;
-        private static int optionSelection = 0;
-        private static NPC? currentDialogueNPC = null;
-        private static readonly string[] optionLabels = ["Respond", "Action", "Thoughts?"];
-
-        // Visual Novel Character Portrait
-        private static Texture2D currentPortrait;
-        private static string currentPortraitPath = "";
-        private static bool hasPortrait = false;
-        private static float moodShakeTimer = 0f;
-
-
-        // Text Input State
-        private static bool showTextInput = false;
-        private static string inputText = "";
-        private static bool isWaitingForAI = false;
-        private static float thinkingDots = 0f;
-        private static Task<string?>? pendingAITask = null;
-        private static bool isActionMode = false; // Track if input is an action
-
-        public static void OpenDialogue(string name, string text, string portraitPath = "")
-        {
-            OpenDialogue(name, text, portraitPath, null);
-        }
-
-        public static void OpenDialogue(string name, string text, string portraitPath, NPC? npc)
-        {
-            // If opening fresh (not advancing conversation), ensure history is clear if needed
-            // But usually OpenDialogue is called for each line. 
-            // We only want to clear history when the *session* starts.
-            // Since we don't have a distinct "StartSession", we'll rely on CloseDialogue to clear it.
-
-            IsOpen = true;
-            currentName = name;
-
-            // Centralize text setting logic
-            SetDialogueText(text, npc);
-
-            // Reset options menu state
-            showOptionsMenu = false;
-            optionSelection = 0;
-            currentDialogueNPC = npc;
-
-            // Load portrait if provided
-            if (!string.IsNullOrEmpty(portraitPath) && System.IO.File.Exists(portraitPath))
-            {
-                if (hasPortrait)
-                {
-                    // Check if path changed for mood shake
-                    if (currentPortraitPath != portraitPath)
-                    {
-                        moodShakeTimer = MoodShakeDuration;
-                    }
-                    Raylib.UnloadTexture(currentPortrait);
-                }
-                else
-                {
-                    // First load, maybe shake?
-                    moodShakeTimer = MoodShakeDuration;
-                }
-
-                currentPortrait = Raylib.LoadTexture(portraitPath);
-                currentPortraitPath = portraitPath; // Cache path
-                hasPortrait = true;
-            }
-            else
-            {
-                hasPortrait = false;
-                currentPortraitPath = "";
-            }
-        }
-
-        private static void SetDialogueText(string text, NPC? npc)
-        {
-            // Record to history
-            if (!string.IsNullOrEmpty(currentName))
-            {
-                // Check if the last entry is the same to avoid duplicates if SetDialogueText is called multiple times for same text
-                // But SetDialogueText is called for each *page*? No, wait. 
-                // SplitTextIntoPages is called here.
-                // We should add the FULL text to history, not the paged text.
-                // But `text` passed here IS the full text for this beat.
-                conversationHistory.Add((currentName, text));
-            }
-
-            // Splitting Logic
-            List<string> pages = SplitTextIntoPages(text, MaxTextWidth);
-
-            if (pages.Count > 0)
-            {
-                currentText = pages[0];
-
-                // If there are more pages, prepend them to the NPC's conversation queue
-                if (pages.Count > 1 && npc != null)
-                {
-                    npc.PrependConversation(pages.Skip(1));
-                }
-            }
-            else
-            {
-                currentText = "";
-            }
-
-            charIndex = 0;
-            typeTimer = 0f;
-        }
-
-        public static void CloseDialogue()
-        {
-            IsOpen = false;
-            conversationHistory.Clear();
-            showChatLog = false;
-
-            if (hasPortrait)
-            {
-                Raylib.UnloadTexture(currentPortrait);
-                hasPortrait = false;
-                currentPortraitPath = "";
-            }
-        }
-
-        public static void Update()
-        {
-            if (!IsOpen) return;
-
-            // Handle AI response waiting
-            if (isWaitingForAI)
-            {
-                thinkingDots += Raylib.GetFrameTime() * 3f;
-                if (thinkingDots > 3f) thinkingDots = 0f;
-
-                // Check if AI response is ready
-                if (pendingAITask != null && pendingAITask.IsCompleted)
-                {
-                    string? response = pendingAITask.Result;
-                    pendingAITask = null;
-                    isWaitingForAI = false;
-
-                    if (!string.IsNullOrEmpty(response))
-                    {
-                        // Show AI response with typewriter
-                        showTextInput = false;
-                        showOptionsMenu = false;
-                        SetDialogueText(response, currentDialogueNPC);
-                    }
-                }
-                return; // Don't process other updates while waiting
-            }
-
-            if (charIndex < currentText.Length)
-            {
-                typeTimer += Raylib.GetFrameTime();
-                if (typeTimer >= TypeSpeed)
-                {
-                    typeTimer = 0;
-                    charIndex++;
-                }
-            }
-
-            // Update Mood Shake
-            if (moodShakeTimer > 0)
-            {
-                moodShakeTimer -= Raylib.GetFrameTime();
-            }
-
-            // Check for Dynamic Portrait Updates (e.g. Mood Change)
-            if (IsOpen && currentDialogueNPC != null)
-            {
-                string newPath = currentDialogueNPC.GetCurrentPortraitPath();
-                if (newPath != currentPortraitPath && System.IO.File.Exists(newPath))
-                {
-                    // Reload Portrait
-                    if (hasPortrait) Raylib.UnloadTexture(currentPortrait);
-                    currentPortrait = Raylib.LoadTexture(newPath);
-                    currentPortraitPath = newPath;
-                    hasPortrait = true;
-
-                    // Trigger Shake
-                    moodShakeTimer = MoodShakeDuration;
-                }
-            }
-        }
-
-        public static void HandleInput()
-        {
-            // Chat Log Toggle
-            if (Raylib.IsKeyPressed(KeyboardKey.C))
-            {
-                showChatLog = !showChatLog;
-                if (showChatLog)
-                {
-                    // Scroll to bottom when opening
-                    // We need to calculate content height first to know where bottom is.
-                    // For now, set a high number, clamping will handle it in Draw
-                    chatLogScroll = 100000;
-                }
-                return;
-            }
-
-            // Chat Log Input
-            if (showChatLog)
-            {
-
-                // Scrolling
-                float wheel = Raylib.GetMouseWheelMove();
-                if (wheel != 0)
-                {
-                    chatLogScroll -= wheel * 20; // Scroll speed
-                }
-                return;
-            }
-
-            // Don't process other input why chatting
-            if (isWaitingForAI) return;
-
-
-            // Text Input Mode
-            if (showTextInput)
-            {
-                HandleTextInput();
-                return;
-            }
-
-            if (showOptionsMenu)
-            {
-                // Options menu navigation
-                if (Raylib.IsKeyPressed(KeyboardKey.Up))
-                {
-                    optionSelection--;
-                    if (optionSelection < 0) optionSelection = optionLabels.Length - 1;
-                }
-                if (Raylib.IsKeyPressed(KeyboardKey.Down))
-                {
-                    optionSelection++;
-                    if (optionSelection >= optionLabels.Length) optionSelection = 0;
-                }
-
-                // Select option
-                if (Raylib.IsKeyPressed(KeyboardKey.X))
-                {
-                    HandleOptionSelection(optionSelection);
-                }
-
-                // Close with Z
-                if (Raylib.IsKeyPressed(KeyboardKey.Z))
-                {
-                    CloseDialogue();
-                }
-            }
-            else
-            {
-                // Normal dialogue mode
-                if (Raylib.IsKeyPressed(KeyboardKey.X))
-                {
-                    if (charIndex < currentText.Length)
-                    {
-                        // Skip typewriter
-                        charIndex = currentText.Length;
-                    }
-                    else
-                    {
-                        // Check for multi-step conversation
-                        if (currentDialogueNPC != null)
-                        {
-                            string? nextLine = currentDialogueNPC.AdvanceConversation();
-                            if (nextLine != null)
-                            {
-                                // Advance to next line immediately
-                                OpenDialogue(currentDialogueNPC.Name, nextLine, currentDialogueNPC.GetCurrentPortraitPath(), currentDialogueNPC);
-                                return;
-                            }
-                        }
-
-                        // Show options menu instead of closing
-                        showOptionsMenu = true;
-                        optionSelection = 0;
-                    }
-                }
-
-                if (Raylib.IsKeyPressed(KeyboardKey.Z))
-                {
-                    CloseDialogue();
-                }
-            }
-        }
-
-        private static void HandleTextInput()
-        {
-            int key = Raylib.GetCharPressed();
-            while (key > 0)
-            {
-                if (key >= 32 && key <= 126 && inputText.Length < MaxInputLength)
-                {
-                    inputText += (char)key;
-                }
-                key = Raylib.GetCharPressed();
-            }
-
-            if (Raylib.IsKeyPressed(KeyboardKey.Backspace) && inputText.Length > 0)
-            {
-                inputText = inputText[..^1];
-            }
-
-            if (Raylib.IsKeyPressed(KeyboardKey.Enter) && inputText.Length > 0)
-            {
-                SubmitPlayerMessage(inputText);
-                inputText = "";
-            }
-
-            if (Raylib.IsKeyPressed(KeyboardKey.Escape))
-            {
-                showTextInput = false;
-                inputText = "";
-                showOptionsMenu = true;
-            }
-        }
-
-        private static void SubmitPlayerMessage(string message)
-        {
-            if (currentDialogueNPC == null) return;
-
-            // Wrap message in asterisks if in action mode
-            string finalMessage = isActionMode ? $"*{message}*" : message;
-
-            // Add to history
-            conversationHistory.Add(("Player", finalMessage));
-
-            if (currentDialogueNPC.CharacterData != null)
-            {
-                isWaitingForAI = true;
-                thinkingDots = 0f;
-                pendingAITask = currentDialogueNPC.GetAIResponseAsync(finalMessage);
-            }
-            else
-            {
-                ShowStaticResponse("(No AI response available)");
-            }
-
-            isActionMode = false; // Reset mode after submit
-        }
-
-        private static void ShowStaticResponse(string text)
-        {
-            showTextInput = false;
-            currentText = text;
-            charIndex = 0;
-            typeTimer = 0f;
-        }
-
-        private static void HandleOptionSelection(int selection)
-        {
-            showOptionsMenu = false;
-
-            switch (selection)
-            {
-                case 0: // Respond
-                    showTextInput = true;
-                    inputText = "";
-                    isActionMode = false;
-                    currentText = "Type your message...";
-                    charIndex = currentText.Length;
-                    break;
-
-                case 1: // Action
-                    showTextInput = true;
-                    inputText = "";
-                    isActionMode = true;
-                    currentText = "Type your action...";
-                    charIndex = currentText.Length;
-                    break;
-
-                case 2: // What's on your Mind? this feature allows the NPC to continue speaking without player input
-                    if (currentDialogueNPC?.CharacterData != null)
-                    {
-                        isWaitingForAI = true;
-                        thinkingDots = 0f;
-                        pendingAITask = currentDialogueNPC.GetAIResponseAsync("*Continue speaking on what you were just saying, or whatever else is on your mind. the player did not speak, you are doing this on your own accord*");
-                    }
-                    else
-                    {
-                        ShowStaticResponse("Nothing much...");
-                    }
-                    break;
-            }
-        }
 
         private static void DrawGrid(int x, int y, int w, int h, float offset, Color gridColor)
         {
@@ -512,9 +114,6 @@ namespace LifeSim
                 // 1. Name Tag Box
                 if (!string.IsNullOrEmpty(currentName))
                 {
-                    // If showing chat log, maybe hide name tag? Or show title "Chat Log"
-                    // User said "same UI as Text box".
-
                     Vector2 nameSize = Raylib.MeasureTextEx(FontSmall, currentName, 12, 0);
                     Rectangle nameRect = new Rectangle(BoxX, BoxY - 18, nameSize.X + (NameTagPadding * 2), nameSize.Y + 3);
                     Raylib.DrawRectangleRec(nameRect, Color.Black);
@@ -532,7 +131,6 @@ namespace LifeSim
             // Text input box
             if (showTextInput && !showChatLog)
             {
-                // the boW - 16 in this code string represents the text input box width
                 Rectangle inputRect = new Rectangle(BoxX + 7, BoxY + 21, boxW - 16, 22);
                 Raylib.DrawRectangleRec(inputRect, new Color(30, 30, 30, 255));
                 Raylib.DrawRectangleLinesEx(inputRect, 1, Color.Yellow);
@@ -652,7 +250,6 @@ namespace LifeSim
 
                 // Measure body text height
                 string body = entry.Text;
-                Vector2 bodyPos = Vector2.Zero;
                 float maxW = contentW * scale;
                 List<string> lines = SplitTextIntoPages(body, maxW / scale);
 
@@ -687,7 +284,6 @@ namespace LifeSim
                 // Draw Text
                 string body = entry.Text;
                 float maxW = contentW * scale;
-                // Re-split for drawing (inefficient but safe for now)
                 List<string> pages = SplitTextIntoPages(body, maxW / scale);
 
                 foreach (var page in pages)
@@ -749,8 +345,14 @@ namespace LifeSim
         private static void DrawMainDialogue(int boxW, float offX, float offY, float scale)
         {
             string visibleText = currentText.Substring(0, charIndex);
-            // FIXED: Scale the max width to match screen coordinates
-            float maxTextWidth = (boxW - 10 - 20) * scale; // Increased padding on right
+
+            // --- TEXT WRAPPING CONFIGURATION ---
+            // 'boxW' is the width of the dialogue box in virtual pixels.
+            // '- 10' accounts for the left margin padding.
+            // '- 10' accounts for right margin padding to prevent text touching the border.
+            // '* scale' converts this virtual width into screen pixel width for the wrapping calculation.
+            // To adjust wrapping width: modify the subtraction values here.
+            float maxTextWidth = (boxW - 10 - 10) * scale;
 
             float fontSize = DialogueFontSize * scale; // Use Constant
             float spacing = TextSpacing * scale;
@@ -842,54 +444,6 @@ namespace LifeSim
                 // Use MeasureTextEx for consistency
                 position.X += size.X;
             }
-        }
-
-        private static List<string> SplitTextIntoPages(string text, float maxWidth)
-        {
-            List<string> pages = new List<string>();
-            string[] words = text.Split(' ');
-            string currentPage = "";
-            string currentLine = "";
-            float fontSize = DialogueFontSize; // Use Constant
-            float spacing = TextSpacing;
-            int maxLines = MaxLinesPerBox; // Use Constant
-            int currentLineCount = 1;
-
-            foreach (var word in words)
-            {
-                string testLine = currentLine + (currentLine.Length > 0 ? " " : "") + word;
-                Vector2 size = Raylib.MeasureTextEx(FontHuge, testLine, fontSize, spacing);
-
-                if (size.X > maxWidth)
-                {
-                    // Line full, push current line to page
-                    currentPage += currentLine + "\n";
-                    currentLineCount++;
-
-                    if (currentLineCount > maxLines)
-                    {
-                        // Page full, push page and start new one
-                        pages.Add(currentPage);
-                        currentPage = "";
-                        currentLineCount = 1;
-                    }
-
-                    currentLine = word; // Start new line with current word
-                }
-                else
-                {
-                    currentLine = testLine;
-                }
-            }
-
-            // Add remaining content
-            if (!string.IsNullOrEmpty(currentLine) || !string.IsNullOrEmpty(currentPage))
-            {
-                if (!string.IsNullOrEmpty(currentLine)) currentPage += currentLine;
-                pages.Add(currentPage);
-            }
-
-            return pages;
         }
 
         private static void DrawOptionsMenuText(int boxW, float offX, float offY, float scale)
