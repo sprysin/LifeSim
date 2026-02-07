@@ -117,6 +117,7 @@ namespace LifeSim
 
         public static void DrawPrompt(NPC npc)
         {
+            if (npc.IsFollowing) return;
             DrawPrompt(npc.GridX, npc.GridY);
         }
 

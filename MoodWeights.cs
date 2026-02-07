@@ -16,7 +16,8 @@ namespace LifeSim
                 { "grumpy", 0.9f },       // Normal likelihood
                 { "sad", 0.8f },          // Slightly less likely
                 { "bashful", 0.8f },      // Slightly less likely
-                { "gluttonous", 1.8f }    // Slightly more likely
+                { "shocked", 0.5f },      // Purely reactive
+                { "spooked", 0.5f }       // Purely reactive
             };
         }
 

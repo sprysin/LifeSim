@@ -125,10 +125,15 @@ namespace LifeSim
             typeTimer = 0f;
         }
 
-        public static void CloseDialogue()
+        public static void CloseDialogue(bool preserveState = false)
         {
             IsOpen = false;
-            conversationHistory.Clear();
+
+            if (!preserveState)
+            {
+                conversationHistory.Clear();
+            }
+
             showChatLog = false;
 
             if (hasPortrait)
@@ -204,19 +209,15 @@ namespace LifeSim
         public static void HandleInput()
         {
             // Chat Log Toggle
-            if (Raylib.IsKeyPressed(KeyboardKey.C))
+            if (Raylib.IsKeyPressed(KeyboardKey.C) && !showTextInput)
             {
-                // Prevent opening chat log while typing
-                if (!showTextInput)
+                showChatLog = !showChatLog;
+                if (showChatLog)
                 {
-                    showChatLog = !showChatLog;
-                    if (showChatLog)
-                    {
-                        // Scroll to bottom when opening
-                        // We need to calculate content height first to know where bottom is.
-                        // For now, set a high number, clamping will handle it in Draw
-                        chatLogScroll = 100000;
-                    }
+                    // Scroll to bottom when opening
+                    // We need to calculate content height first to know where bottom is.
+                    // For now, set a high number, clamping will handle it in Draw
+                    chatLogScroll = 100000;
                 }
                 return;
             }
@@ -231,20 +232,8 @@ namespace LifeSim
                     chatLogScroll -= wheel * 20; // Scroll speed
                 }
 
-                // Close with Z or Escape handled below if we want, or here.
-                // User removed the specific block for Z/Esc inside 'if (showChatLog)' in previous turn?
-                // No, user removed it from inside 'if (showChatLog)' block in Step 255.
-                // Wait, looking at Step 255 diff:
-                // -                if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Escape))
-                // -                {
-                // -                    showChatLog = false;
-                // -                }
-                // So they removed it. Maybe they want it handled globally or they just didn't like it there.
-                // But wait, "Backing out of chat log with 'Z'" was requested.
-                // Maybe I should re-add it if it's missing?
-
                 // checking logic below:
-                if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Escape) || Raylib.IsKeyPressed(KeyboardKey.C))
+                if (Raylib.IsKeyPressed(KeyboardKey.C))
                 {
                     showChatLog = false;
                 }
@@ -261,6 +250,18 @@ namespace LifeSim
             {
                 HandleTextInput();
                 return;
+            }
+
+            // Follow Logic - Allow at any point in dialogue as long as not typing
+            if (Raylib.IsKeyPressed(KeyboardKey.V))
+            {
+                if (currentDialogueNPC != null)
+                {
+                    Console.WriteLine($"[UiSystem] Starting Follow: {currentDialogueNPC.Name}");
+                    currentDialogueNPC.SetFollow(true);
+                    CloseDialogue(preserveState: true);
+                    return;
+                }
             }
 
             if (showOptionsMenu)
@@ -322,6 +323,17 @@ namespace LifeSim
                 if (Raylib.IsKeyPressed(KeyboardKey.Z))
                 {
                     CloseDialogue();
+                }
+
+                // Follow Logic
+                if (Raylib.IsKeyPressed(KeyboardKey.V))
+                {
+                    Console.WriteLine($"[UiSystem] V Pressed. NPC: {currentDialogueNPC?.Name ?? "null"}");
+                    if (currentDialogueNPC != null)
+                    {
+                        currentDialogueNPC.SetFollow(true);
+                        CloseDialogue();
+                    }
                 }
             }
         }

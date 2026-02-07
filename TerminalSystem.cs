@@ -49,8 +49,16 @@ namespace LifeSim
                 var selectedNPC = terminalNPCs[terminalSelection];
 
                 // Sub-menu Navigation
-                if (Raylib.IsKeyPressed(KeyboardKey.Down)) editingSelection = 1;
-                if (Raylib.IsKeyPressed(KeyboardKey.Up)) editingSelection = 0;
+                if (Raylib.IsKeyPressed(KeyboardKey.Down))
+                {
+                    editingSelection++;
+                    if (editingSelection > 2) editingSelection = 0; // 0: Rule, 1: Mood, 2: Skin
+                }
+                if (Raylib.IsKeyPressed(KeyboardKey.Up))
+                {
+                    editingSelection--;
+                    if (editingSelection < 0) editingSelection = 2;
+                }
 
                 if (Raylib.IsKeyPressed(KeyboardKey.X))
                 {
@@ -77,6 +85,12 @@ namespace LifeSim
                             selectedNPC.CurrentMood = moods[nextIdx];
                             selectedNPC.UpdateDialogue();
                         }
+                    }
+                    else if (editingSelection == 2)
+                    {
+                        // Toggle Skin
+                        if (selectedNPC.CurrentSkin == "Skin0") selectedNPC.CurrentSkin = "Skin1";
+                        else selectedNPC.CurrentSkin = "Skin0";
                     }
                 }
 
@@ -252,8 +266,17 @@ namespace LifeSim
 
                     Raylib.DrawTextEx(UISystem.FontSmall, moodDisplay, new Vector2(splitX + 10, moodY + 12), 12, 0, Color.White);
 
+                    // 3. Skin Setting
+                    int skinY = moodY + 30; // Compact spacing
+                    Color skinHeaderColor = (editingSelection == 2) ? Color.Yellow : Color.White;
+                    Raylib.DrawTextEx(UISystem.FontSmall, "Skin", new Vector2(splitX + 10, skinY), 12, 0, skinHeaderColor);
+                    if (editingSelection == 2) Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(splitX + 2, skinY), 12, 0, Color.Yellow);
+
+                    Raylib.DrawTextEx(UISystem.FontSmall, $"[{selectedNPC.CurrentSkin}]", new Vector2(splitX + 10, skinY + 12), 12, 0, Color.White);
+
+
                     // Instructions
-                    Raylib.DrawTextEx(UISystem.FontSmall, "X: Change | Z: Back", new Vector2(splitX + 10, moodY + 40), 12, 0, Color.LightGray);
+                    Raylib.DrawTextEx(UISystem.FontSmall, "X: Change | Z: Back", new Vector2(splitX + 10, skinY + 40), 12, 0, Color.LightGray);
                 }
                 else
                 {

@@ -55,10 +55,21 @@ namespace LifeSim
         private const float WalkStepInterval = 0.4f; // Time to move 1 tile (slower than player for deliberate feel)
         private System.Random rng = new System.Random();
 
+        public string CurrentSkin = "Skin0";
+        // Static tracker for exclusive following
+        public static NPC? ActiveFollower = null;
+        public bool IsFollowing => ActiveFollower == this;
+
+        public void SetFollow(bool follow)
+        {
+            if (follow) ActiveFollower = this;
+            else if (ActiveFollower == this) ActiveFollower = null;
+        }
+
         public NPC(int x, int y, string name, string text, string portraitPath = "", string spritePath = "", float scale = 1.0f)
         {
             GridX = x;
-            GridY = y;
+            @GridY = y;
             Name = name;
             DialogueText = text;
             PortraitPath = portraitPath;
@@ -90,23 +101,32 @@ namespace LifeSim
         {
             if (!string.IsNullOrEmpty(PortraitCode))
             {
-                // Format: Visual Novel Images/{Name}/{Code}_{Mood}_Skin0.png
+                // Format: Visual Novel Images/{Name}/{Code}_{Mood}_{Skin}.png
                 // Capitalize Mood
                 string moodCap = char.ToUpper(CurrentMood[0]) + CurrentMood.Substring(1).ToLower();
 
-                string path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_{moodCap}_Skin0.png");
+                // Check for specific skin + mood
+                string path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_{moodCap}_{CurrentSkin}.png");
 
                 if (System.IO.File.Exists(path))
                 {
                     return path;
                 }
 
-                // Fallback to Neutral if specific mood not found
+                // Fallback to Skin0 if specific skin not found
+                if (CurrentSkin != "Skin0")
+                {
+                    path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_{moodCap}_Skin0.png");
+                    if (System.IO.File.Exists(path)) return path;
+                }
+
+                // Fallback to Neutral + Current Skin
+                path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_Neutral_{CurrentSkin}.png");
+                if (System.IO.File.Exists(path)) return path;
+
+                // Fallback to Neutral + Skin0
                 path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_Neutral_Skin0.png");
-                if (System.IO.File.Exists(path))
-                {
-                    return path;
-                }
+                if (System.IO.File.Exists(path)) return path;
             }
 
             return PortraitPath; // Fallback to static path
@@ -210,8 +230,80 @@ namespace LifeSim
             }
         }
 
-        public void Update(float dt)
+        public void Update(float dt, Player? player = null)
         {
+            // Follow Logic
+            if (IsFollowing && player != null)
+            {
+                currentState = AIState.Walking; // Force walking anim
+
+                int dist = Math.Abs(player.GridX - GridX) + Math.Abs(player.GridY - GridY);
+                if (dist > 1)
+                {
+                    // Move towards player
+                    // Simple pathfinding: nice axis first
+                    int dx = player.GridX - GridX;
+                    int dy = player.GridY - GridY;
+
+                    // Pace movement
+                    walkStepTimer -= dt;
+                    if (walkStepTimer <= 0)
+                    {
+                        walkStepTimer = WalkStepInterval;
+
+                        int stepX = 0;
+                        int stepY = 0;
+
+                        if (Math.Abs(dx) > Math.Abs(dy))
+                        {
+                            // Move X
+                            stepX = Math.Sign(dx);
+                            currentDir = stepX > 0 ? Direction.Right : Direction.Left;
+                        }
+                        else
+                        {
+                            // Move Y
+                            stepY = Math.Sign(dy);
+                            currentDir = stepY > 0 ? Direction.Down : Direction.Up;
+                        }
+
+                        int nextX = GridX + stepX;
+                        int nextY = GridY + stepY;
+
+                        if (TileSystem.IsWalkable(nextX, nextY) && !(nextX == player.GridX && nextY == player.GridY))
+                        {
+                            GridX = nextX;
+                            GridY = nextY;
+                        }
+                    }
+                }
+                else
+                {
+                    // Close enough, face player
+                    if (player.GridX > GridX) currentDir = Direction.Right;
+                    if (player.GridX < GridX) currentDir = Direction.Left;
+                    if (player.GridY > GridY) currentDir = Direction.Down;
+                    if (player.GridY < GridY) currentDir = Direction.Up;
+
+                    currentState = AIState.Idle;
+                    currentFrame = 0;
+                }
+
+                // Animation Logic for Follow
+                if (currentState == AIState.Walking)
+                {
+                    frameTimer += dt;
+                    if (frameTimer >= FrameSpeed)
+                    {
+                        currentFrame++;
+                        if (currentFrame >= 4) currentFrame = 0;
+                        frameTimer = 0;
+                    }
+                }
+                return; // Skip normal wander logic if following
+            }
+
+
             stateTimer -= dt;
 
             if (currentState == AIState.Idle)

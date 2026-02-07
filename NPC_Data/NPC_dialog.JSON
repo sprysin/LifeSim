@@ -8,17 +8,21 @@
                 "neutral_4": "hm? didnt see you there.",
                 "neutral_Custom": "[generated response with google gemini]"
             },
-            "Gluttonous": {
-                "gluttonous_1": "I'm so hungry!",
-                "gluttonous_2": "I'm so full!",
-                "gluttonous_3": "My belly is gonna burst!",
-                "gluttonous_4": "I'm so tired...",
-                "gluttonous_Custom": "[generated response with google gemini]"
+            "Shocked": {
+                "shocked_1": "Woaah",
+                "shocked_2": "I can't believe it!",
+                "shocked_Custom": "[generated response with google gemini]"
+            },
+            "Spooked": {
+                "spooked_1": "WHA! WHAT?!",
+                "spooked_2": "YIKES",
+                "spooked_3": "Hold me back!",
+                "spooked_Custom": "[generated response with google gemini]"
             },
             "bashful": {
                 "bashful_1": "Dawww~",
                 "bashful_2": "Pffft! I'm not blushing!",
-                "bashful_3": "Is it hot in here? I'm starting to sweat...",
+                "bashful_3": "Is- is it hot in here? I'm starting to sweat...",
                 "bashful_Custom": "[generated response with google gemini]"
             },
             "energized": {

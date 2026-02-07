@@ -103,7 +103,7 @@ namespace LifeSim
                         // Update NPCs
                         foreach (var npc in npcs)
                         {
-                            npc.Update(Raylib.GetFrameTime());
+                            npc.Update(Raylib.GetFrameTime(), player);
                         }
 
                         // Check for Room Exit
@@ -124,6 +124,20 @@ namespace LifeSim
                         else if (TerminalSystem.IsOpen)
                         {
                             CurrentState = GameState.Terminal;
+                        }
+                        else if (Raylib.IsKeyPressed(KeyboardKey.V))
+                        {
+                            // Resume Dialogue with Follower
+                            if (NPC.ActiveFollower != null)
+                            {
+                                // Stop following when resuming dialogue
+                                var follower = NPC.ActiveFollower;
+                                follower.SetFollow(false);
+
+                                CurrentState = GameState.Dialogue;
+                                follower.UpdateDialogue();
+                                UISystem.OpenDialogue(follower.Name, follower.DialogueText, follower.GetCurrentPortraitPath(), follower);
+                            }
                         }
                     }
                 }
