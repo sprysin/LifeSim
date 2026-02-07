@@ -28,6 +28,7 @@ namespace LifeSim
         {
             Raylib.InitWindow(1280, 720, "LifeSim - Visual Novel Edition");
             Raylib.SetTargetFPS(60);
+            Raylib.SetExitKey(KeyboardKey.Null); // Disable default ESC to quit behavior
 
             // Initialize Systems
             TileSystem.Initialize();
@@ -47,7 +48,7 @@ namespace LifeSim
                     if (Raylib.IsKeyPressed(KeyboardKey.Down)) menuSelection = (menuSelection + 1) % 3;
                     if (Raylib.IsKeyPressed(KeyboardKey.Up)) menuSelection = (menuSelection + 2) % 3;
 
-                    if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter))
+                    if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.X))
                     {
                         if (menuSelection == 0) // Start (Living Room)
                         {
@@ -72,7 +73,7 @@ namespace LifeSim
                     if (Raylib.IsKeyPressed(KeyboardKey.Down)) debugLocationSelection = (debugLocationSelection + 1) % 2;
                     if (Raylib.IsKeyPressed(KeyboardKey.Up)) debugLocationSelection = (debugLocationSelection + 1) % 2;
 
-                    if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter))
+                    if (Raylib.IsKeyPressed(KeyboardKey.Z) || Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.X))
                     {
                         if (debugLocationSelection == 0) // Debug Room
                         {

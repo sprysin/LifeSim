@@ -94,7 +94,7 @@ namespace LifeSim
                 // Capitalize Mood
                 string moodCap = char.ToUpper(CurrentMood[0]) + CurrentMood.Substring(1).ToLower();
 
-                string path = $"Visual Novel Images/{Name}/{PortraitCode}_{moodCap}_Skin0.png";
+                string path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_{moodCap}_Skin0.png");
 
                 if (System.IO.File.Exists(path))
                 {
@@ -102,7 +102,7 @@ namespace LifeSim
                 }
 
                 // Fallback to Neutral if specific mood not found
-                path = $"Visual Novel Images/{Name}/{PortraitCode}_Neutral_Skin0.png";
+                path = Path.Combine("NPC_Data", "Visual Novel Images", Name, $"{PortraitCode}_Neutral_Skin0.png");
                 if (System.IO.File.Exists(path))
                 {
                     return path;
@@ -128,6 +128,16 @@ namespace LifeSim
             {
                 ConversationQueue.Enqueue(line);
             }
+        }
+
+        public void PrependConversation(IEnumerable<string> lines)
+        {
+            var newQueue = new Queue<string>(lines);
+            while (ConversationQueue.Count > 0)
+            {
+                newQueue.Enqueue(ConversationQueue.Dequeue());
+            }
+            ConversationQueue = newQueue;
         }
 
         public string? AdvanceConversation()

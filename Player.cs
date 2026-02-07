@@ -37,7 +37,7 @@ namespace LifeSim
         public Player()
         {
             // Load the sprite sheet
-            string path = "Character_Sheets/main_character Sprite sheet.png";
+            string path = Path.Combine("NPC_Data", "Character_Sheets", "main_character Sprite sheet.png");
             if (System.IO.File.Exists(path))
             {
                 spriteSheet = Raylib.LoadTexture(path);

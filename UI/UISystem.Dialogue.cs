@@ -18,12 +18,30 @@ namespace LifeSim
         private const int OptionSpacing = 16;
         private const int MaxInputLength = 100;
 
+        // Text Layout Constants
+        private const int DialogueFontSize = 10;
+        private const float TextSpacing = 1.0f;
+        private const int MaxTextWidth = 240; // Approx max width in pixels
+        private const int MaxLinesPerBox = 3;
+        private const int LineHeightPadding = 2;
+
+        // Mood Shake Constants
+        private const float MoodShakeDuration = 0.3f;
+        private const float MoodShakeIntensity = 5.0f;
+        private const float MoodShakeSpeed = 30.0f;
+
         // Dialogue State
         public static bool IsOpen = false;
         private static string currentText = "";
         private static string currentName = "";
         private static float typeTimer = 0f;
         private static int charIndex = 0;
+
+        // Chat Log State
+        private static bool showChatLog = false;
+        private static List<(string Name, string Text)> conversationHistory = new List<(string Name, string Text)>();
+        private static float chatLogScroll = 0f;
+        private static float chatLogContentHeight = 0f;
 
         // Options Menu State
         private static bool showOptionsMenu = false;
@@ -35,6 +53,8 @@ namespace LifeSim
         private static Texture2D currentPortrait;
         private static string currentPortraitPath = "";
         private static bool hasPortrait = false;
+        private static float moodShakeTimer = 0f;
+
 
         // Text Input State
         private static bool showTextInput = false;
@@ -51,11 +71,16 @@ namespace LifeSim
 
         public static void OpenDialogue(string name, string text, string portraitPath, NPC? npc)
         {
+            // If opening fresh (not advancing conversation), ensure history is clear if needed
+            // But usually OpenDialogue is called for each line. 
+            // We only want to clear history when the *session* starts.
+            // Since we don't have a distinct "StartSession", we'll rely on CloseDialogue to clear it.
+
             IsOpen = true;
             currentName = name;
-            currentText = text;
-            charIndex = 0;
-            typeTimer = 0f;
+
+            // Centralize text setting logic
+            SetDialogueText(text, npc);
 
             // Reset options menu state
             showOptionsMenu = false;
@@ -67,8 +92,19 @@ namespace LifeSim
             {
                 if (hasPortrait)
                 {
+                    // Check if path changed for mood shake
+                    if (currentPortraitPath != portraitPath)
+                    {
+                        moodShakeTimer = MoodShakeDuration;
+                    }
                     Raylib.UnloadTexture(currentPortrait);
                 }
+                else
+                {
+                    // First load, maybe shake?
+                    moodShakeTimer = MoodShakeDuration;
+                }
+
                 currentPortrait = Raylib.LoadTexture(portraitPath);
                 currentPortraitPath = portraitPath; // Cache path
                 hasPortrait = true;
@@ -80,9 +116,47 @@ namespace LifeSim
             }
         }
 
+        private static void SetDialogueText(string text, NPC? npc)
+        {
+            // Record to history
+            if (!string.IsNullOrEmpty(currentName))
+            {
+                // Check if the last entry is the same to avoid duplicates if SetDialogueText is called multiple times for same text
+                // But SetDialogueText is called for each *page*? No, wait. 
+                // SplitTextIntoPages is called here.
+                // We should add the FULL text to history, not the paged text.
+                // But `text` passed here IS the full text for this beat.
+                conversationHistory.Add((currentName, text));
+            }
+
+            // Splitting Logic
+            List<string> pages = SplitTextIntoPages(text, MaxTextWidth);
+
+            if (pages.Count > 0)
+            {
+                currentText = pages[0];
+
+                // If there are more pages, prepend them to the NPC's conversation queue
+                if (pages.Count > 1 && npc != null)
+                {
+                    npc.PrependConversation(pages.Skip(1));
+                }
+            }
+            else
+            {
+                currentText = "";
+            }
+
+            charIndex = 0;
+            typeTimer = 0f;
+        }
+
         public static void CloseDialogue()
         {
             IsOpen = false;
+            conversationHistory.Clear();
+            showChatLog = false;
+
             if (hasPortrait)
             {
                 Raylib.UnloadTexture(currentPortrait);
@@ -113,9 +187,7 @@ namespace LifeSim
                         // Show AI response with typewriter
                         showTextInput = false;
                         showOptionsMenu = false;
-                        currentText = response;
-                        charIndex = 0;
-                        typeTimer = 0f;
+                        SetDialogueText(response, currentDialogueNPC);
                     }
                 }
                 return; // Don't process other updates while waiting
@@ -131,6 +203,12 @@ namespace LifeSim
                 }
             }
 
+            // Update Mood Shake
+            if (moodShakeTimer > 0)
+            {
+                moodShakeTimer -= Raylib.GetFrameTime();
+            }
+
             // Check for Dynamic Portrait Updates (e.g. Mood Change)
             if (IsOpen && currentDialogueNPC != null)
             {
@@ -142,14 +220,45 @@ namespace LifeSim
                     currentPortrait = Raylib.LoadTexture(newPath);
                     currentPortraitPath = newPath;
                     hasPortrait = true;
+
+                    // Trigger Shake
+                    moodShakeTimer = MoodShakeDuration;
                 }
             }
         }
 
         public static void HandleInput()
         {
-            // Don't process input while waiting for AI
+            // Chat Log Toggle
+            if (Raylib.IsKeyPressed(KeyboardKey.C))
+            {
+                showChatLog = !showChatLog;
+                if (showChatLog)
+                {
+                    // Scroll to bottom when opening
+                    // We need to calculate content height first to know where bottom is.
+                    // For now, set a high number, clamping will handle it in Draw
+                    chatLogScroll = 100000;
+                }
+                return;
+            }
+
+            // Chat Log Input
+            if (showChatLog)
+            {
+
+                // Scrolling
+                float wheel = Raylib.GetMouseWheelMove();
+                if (wheel != 0)
+                {
+                    chatLogScroll -= wheel * 20; // Scroll speed
+                }
+                return;
+            }
+
+            // Don't process other input why chatting
             if (isWaitingForAI) return;
+
 
             // Text Input Mode
             if (showTextInput)
@@ -244,7 +353,7 @@ namespace LifeSim
                 inputText = "";
             }
 
-            if (Raylib.IsKeyPressed(KeyboardKey.Escape) || Raylib.IsKeyPressed(KeyboardKey.Z))
+            if (Raylib.IsKeyPressed(KeyboardKey.Escape))
             {
                 showTextInput = false;
                 inputText = "";
@@ -258,6 +367,9 @@ namespace LifeSim
 
             // Wrap message in asterisks if in action mode
             string finalMessage = isActionMode ? $"*{message}*" : message;
+
+            // Add to history
+            conversationHistory.Add(("Player", finalMessage));
 
             if (currentDialogueNPC.CharacterData != null)
             {
@@ -340,30 +452,6 @@ namespace LifeSim
 
         private static int GetBoxWidth() => showOptionsMenu ? (int)(FullBoxW * 0.75f) : FullBoxW;
 
-        private static string WrapText(string text, float maxWidth)
-        {
-            string[] words = text.Split(' ');
-            string result = "";
-            string lineBuffer = "";
-
-            foreach (var word in words)
-            {
-                string testLine = lineBuffer + word + " ";
-                Vector2 size = Raylib.MeasureTextEx(FontSmall, testLine, 12, 0);
-
-                if (size.X > maxWidth)
-                {
-                    result += lineBuffer.TrimEnd() + "\n";
-                    lineBuffer = word + " ";
-                }
-                else
-                {
-                    lineBuffer = testLine;
-                }
-            }
-
-            return result + lineBuffer.TrimEnd();
-        }
 
         private static void DrawPortrait(int screenW, int screenH)
         {
@@ -373,9 +461,16 @@ namespace LifeSim
             float scaledW = currentPortrait.Width * scale;
             float scaledH = currentPortrait.Height * scale;
             float posX = (screenW - scaledW) / 2;
-            float posY = (screenH * 0.8f) - (scaledH / 1.8f);
+            float basePosY = (screenH * 0.8f) - (scaledH / 1.8f);
 
-            Raylib.DrawTextureEx(currentPortrait, new Vector2(posX, posY), 0f, scale, Color.White);
+            // Apply Mood Shake
+            float shakeOffsetY = 0f;
+            if (moodShakeTimer > 0)
+            {
+                shakeOffsetY = (float)Math.Sin(Raylib.GetTime() * MoodShakeSpeed) * MoodShakeIntensity * scale;
+            }
+
+            Raylib.DrawTextureEx(currentPortrait, new Vector2(posX, basePosY + shakeOffsetY), 0f, scale, Color.White);
         }
 
         private static void DrawDialogueBuffer()
@@ -387,41 +482,55 @@ namespace LifeSim
             Raylib.BeginTextureMode(UIBuffer);
             Raylib.ClearBackground(Color.Blank);
 
-            // Main dialogue box
-            Rectangle boxRect = new Rectangle(BoxX, BoxY, boxW, BoxH);
-            Raylib.DrawRectangleRec(boxRect, new Color(0, 0, 0, 220));
-            DrawGrid(BoxX, BoxY, boxW, BoxH, offset, gridColor);
-            Raylib.DrawRectangleLinesEx(boxRect, 1, Color.White);
-
-            // Options panel
-            if (showOptionsMenu)
+            if (showChatLog)
             {
-                int panelX = BoxX + boxW + 5;
-                int panelW = FullBoxW - boxW - 5;
-                Rectangle panelRect = new Rectangle(panelX, BoxY, panelW, BoxH);
-                Raylib.DrawRectangleRec(panelRect, new Color(0, 0, 0, 220));
-                DrawGrid(panelX, BoxY, panelW, BoxH, offset, gridColor);
-                Raylib.DrawRectangleLinesEx(panelRect, 1, Color.White);
+                // Draw Full Screen Log
+                Rectangle logRect = new Rectangle(5, 5, VirtualWidth - 10, VirtualHeight - 10);
+                Raylib.DrawRectangleRec(logRect, new Color(0, 0, 0, 240));
+                DrawGrid(5, 5, VirtualWidth - 10, VirtualHeight - 10, offset, gridColor);
+                Raylib.DrawRectangleLinesEx(logRect, 1, Color.White);
             }
-
-            // 1. Name Tag Box
-            if (!string.IsNullOrEmpty(currentName))
+            else
             {
-                Vector2 nameSize = Raylib.MeasureTextEx(FontSmall, currentName, 12, 0);
-                Rectangle nameRect = new Rectangle(BoxX, BoxY - 18, nameSize.X + (NameTagPadding * 2), nameSize.Y + 3);
-                Raylib.DrawRectangleRec(nameRect, Color.Black);
-                Raylib.DrawRectangleLinesEx(nameRect, 1, Color.White);
-            }
+                // Main dialogue box
+                Rectangle boxRect = new Rectangle(BoxX, BoxY, boxW, BoxH);
+                Raylib.DrawRectangleRec(boxRect, new Color(0, 0, 0, 220));
+                DrawGrid(BoxX, BoxY, boxW, BoxH, offset, gridColor);
+                Raylib.DrawRectangleLinesEx(boxRect, 1, Color.White);
 
-            // [Z] Close Button Box (Top Right)
-            int closeBtnX = BoxX + boxW - CloseBtnSize - 4;
-            int closeBtnY = BoxY + 4;
-            Rectangle closeBtnRect = new Rectangle(closeBtnX, closeBtnY, CloseBtnSize, CloseBtnSize);
-            Raylib.DrawRectangleRec(closeBtnRect, Color.Black);
-            Raylib.DrawRectangleLinesEx(closeBtnRect, 1, Color.White);
+                // Options panel
+                if (showOptionsMenu)
+                {
+                    int panelX = BoxX + boxW + 5;
+                    int panelW = FullBoxW - boxW - 5;
+                    Rectangle panelRect = new Rectangle(panelX, BoxY, panelW, BoxH);
+                    Raylib.DrawRectangleRec(panelRect, new Color(0, 0, 0, 220));
+                    DrawGrid(panelX, BoxY, panelW, BoxH, offset, gridColor);
+                    Raylib.DrawRectangleLinesEx(panelRect, 1, Color.White);
+                }
+
+                // 1. Name Tag Box
+                if (!string.IsNullOrEmpty(currentName))
+                {
+                    // If showing chat log, maybe hide name tag? Or show title "Chat Log"
+                    // User said "same UI as Text box".
+
+                    Vector2 nameSize = Raylib.MeasureTextEx(FontSmall, currentName, 12, 0);
+                    Rectangle nameRect = new Rectangle(BoxX, BoxY - 18, nameSize.X + (NameTagPadding * 2), nameSize.Y + 3);
+                    Raylib.DrawRectangleRec(nameRect, Color.Black);
+                    Raylib.DrawRectangleLinesEx(nameRect, 1, Color.White);
+                }
+
+                // [Z] Close Button Box (Top Right)
+                int closeBtnX = BoxX + boxW - CloseBtnSize - 4;
+                int closeBtnY = BoxY + 4;
+                Rectangle closeBtnRect = new Rectangle(closeBtnX, closeBtnY, CloseBtnSize, CloseBtnSize);
+                Raylib.DrawRectangleRec(closeBtnRect, Color.Black);
+                Raylib.DrawRectangleLinesEx(closeBtnRect, 1, Color.White);
+            }
 
             // Text input box
-            if (showTextInput)
+            if (showTextInput && !showChatLog)
             {
                 // the boW - 16 in this code string represents the text input box width
                 Rectangle inputRect = new Rectangle(BoxX + 7, BoxY + 21, boxW - 16, 22);
@@ -459,6 +568,12 @@ namespace LifeSim
             float scale = Math.Min(scaleX, scaleY);
             float offX = (screenW - (VirtualWidth * scale)) / 2;
             float offY = (screenH - (VirtualHeight * scale)) / 2;
+
+            if (showChatLog)
+            {
+                DrawChatLogContent(offX, offY, scale);
+                return;
+            }
 
             int boxW = GetBoxWidth();
 
@@ -509,6 +624,102 @@ namespace LifeSim
             }
         }
 
+        private static void DrawChatLogContent(float offX, float offY, float scale)
+        {
+            // Draw Title
+            Vector2 titlePos = new Vector2(offX + (10 * scale), offY + (10 * scale));
+            Raylib.DrawTextEx(FontHuge, "Chat Log", titlePos, 12 * scale, 1, Color.Yellow);
+
+            // Define content area
+            float contentX = 15;
+            float contentY = 30; // Start below title
+            float contentW = VirtualWidth - 30;
+            float contentH = VirtualHeight - 40;
+
+            Raylib.BeginScissorMode((int)(offX + (contentX * scale)), (int)(offY + (contentY * scale)), (int)(contentW * scale), (int)(contentH * scale));
+
+            float cursorY = 0;
+            float fontSize = DialogueFontSize * scale;
+            float spacing = TextSpacing * scale;
+            float lineHeight = fontSize + LineHeightPadding * scale;
+
+            // Calculate total height first for clamping scroll
+            float totalHeight = 0;
+            foreach (var entry in conversationHistory)
+            {
+                string header = $"{entry.Name}:";
+                totalHeight += lineHeight + 5 * scale; // Header + padding
+
+                // Measure body text height
+                string body = entry.Text;
+                Vector2 bodyPos = Vector2.Zero;
+                float maxW = contentW * scale;
+                List<string> lines = SplitTextIntoPages(body, maxW / scale);
+
+                foreach (var page in lines)
+                {
+                    string[] subLines = page.Split('\n');
+                    totalHeight += subLines.Length * lineHeight;
+                }
+                totalHeight += 10 * scale; // Spacing between messages
+            }
+
+            chatLogContentHeight = totalHeight;
+
+            // Clamp Scroll
+            float maxScroll = Math.Max(0, chatLogContentHeight - (contentH * scale));
+            chatLogScroll = Math.Clamp(chatLogScroll, 0, maxScroll);
+
+            // Draw Content
+            cursorY = -chatLogScroll;
+
+            foreach (var entry in conversationHistory)
+            {
+                float startEntryY = cursorY;
+
+                // Draw Name
+                Color nameColor = entry.Name == "Player" ? Color.SkyBlue : Color.Orange;
+                Vector2 namePos = new Vector2(offX + (contentX * scale), offY + (contentY * scale) + cursorY);
+                Raylib.DrawTextEx(FontHuge, $"{entry.Name}:", namePos, fontSize, spacing, nameColor);
+
+                cursorY += lineHeight + 5 * scale;
+
+                // Draw Text
+                string body = entry.Text;
+                float maxW = contentW * scale;
+                // Re-split for drawing (inefficient but safe for now)
+                List<string> pages = SplitTextIntoPages(body, maxW / scale);
+
+                foreach (var page in pages)
+                {
+                    string[] lines = page.Split('\n');
+                    foreach (var line in lines)
+                    {
+                        Vector2 linePos = new Vector2(offX + (contentX * scale), offY + (contentY * scale) + cursorY);
+                        Raylib.DrawTextEx(FontHuge, line, linePos, fontSize, spacing, Color.White);
+                        cursorY += lineHeight;
+                    }
+                }
+
+                cursorY += 10 * scale; // Spacing between messages
+            }
+
+            Raylib.EndScissorMode();
+
+            // Draw Scrollbar if needed
+            if (chatLogContentHeight > contentH * scale)
+            {
+                float scrollRatio = chatLogScroll / maxScroll;
+                float barH = (contentH * scale) * ((contentH * scale) / chatLogContentHeight);
+                if (barH < 20 * scale) barH = 20 * scale;
+
+                float barY = (contentY * scale) + (scrollRatio * ((contentH * scale) - barH));
+                float barX = (contentX + contentW - 2) * scale;
+
+                Raylib.DrawRectangle((int)(offX + barX), (int)(offY + barY), (int)(2 * scale), (int)barH, new Color(255, 255, 255, 150));
+            }
+        }
+
         private static void DrawAIThinking(float offX, float offY, float scale)
         {
             int dotCount = (int)thinkingDots + 1;
@@ -532,18 +743,18 @@ namespace LifeSim
             Raylib.DrawTextEx(FontHuge, displayText, inputPos, 10 * scale, 0, Color.White);
 
             Vector2 hintPos = new Vector2(offX + ((BoxX + 10) * scale), offY + ((BoxY + 50) * scale));
-            Raylib.DrawTextEx(FontHuge, "ENTER to send | Z to cancel", hintPos, 10 * scale, 0, new Color(150, 150, 150, 255));
+            Raylib.DrawTextEx(FontHuge, "ENTER to send | ESC to cancel", hintPos, 10 * scale, 0, new Color(150, 150, 150, 255));
         }
 
         private static void DrawMainDialogue(int boxW, float offX, float offY, float scale)
         {
             string visibleText = currentText.Substring(0, charIndex);
             // FIXED: Scale the max width to match screen coordinates
-            float maxTextWidth = (boxW - 10 - 58) * scale;
+            float maxTextWidth = (boxW - 10 - 20) * scale; // Increased padding on right
 
-            float fontSize = 12 * scale;
-            float spacing = 1 * scale;
-            float lineHeight = fontSize + 2 * scale; // Spacing between lines
+            float fontSize = DialogueFontSize * scale; // Use Constant
+            float spacing = TextSpacing * scale;
+            float lineHeight = fontSize + LineHeightPadding * scale; // Spacing between lines
 
             Vector2 startPos = new Vector2(offX + ((BoxX + 10) * scale), offY + ((BoxY + 8) * scale));
             Vector2 currentPos = startPos;
@@ -564,6 +775,18 @@ namespace LifeSim
                         currentSegment = "";
                     }
                     inAction = !inAction; // Toggle action mode
+                }
+                else if (c == '\n')
+                {
+                    // Handle explicit line break from pagination
+                    if (currentSegment.Length > 0)
+                    {
+                        DrawTextSegment(ref currentPos, currentSegment, maxTextWidth, leftMarginX, fontSize, spacing, lineHeight, inAction ? Color.Yellow : Color.White);
+                        currentSegment = "";
+                    }
+                    // Force carriage return
+                    currentPos.X = leftMarginX;
+                    currentPos.Y += lineHeight;
                 }
                 else
                 {
@@ -619,6 +842,54 @@ namespace LifeSim
                 // Use MeasureTextEx for consistency
                 position.X += size.X;
             }
+        }
+
+        private static List<string> SplitTextIntoPages(string text, float maxWidth)
+        {
+            List<string> pages = new List<string>();
+            string[] words = text.Split(' ');
+            string currentPage = "";
+            string currentLine = "";
+            float fontSize = DialogueFontSize; // Use Constant
+            float spacing = TextSpacing;
+            int maxLines = MaxLinesPerBox; // Use Constant
+            int currentLineCount = 1;
+
+            foreach (var word in words)
+            {
+                string testLine = currentLine + (currentLine.Length > 0 ? " " : "") + word;
+                Vector2 size = Raylib.MeasureTextEx(FontHuge, testLine, fontSize, spacing);
+
+                if (size.X > maxWidth)
+                {
+                    // Line full, push current line to page
+                    currentPage += currentLine + "\n";
+                    currentLineCount++;
+
+                    if (currentLineCount > maxLines)
+                    {
+                        // Page full, push page and start new one
+                        pages.Add(currentPage);
+                        currentPage = "";
+                        currentLineCount = 1;
+                    }
+
+                    currentLine = word; // Start new line with current word
+                }
+                else
+                {
+                    currentLine = testLine;
+                }
+            }
+
+            // Add remaining content
+            if (!string.IsNullOrEmpty(currentLine) || !string.IsNullOrEmpty(currentPage))
+            {
+                if (!string.IsNullOrEmpty(currentLine)) currentPage += currentLine;
+                pages.Add(currentPage);
+            }
+
+            return pages;
         }
 
         private static void DrawOptionsMenuText(int boxW, float offX, float offY, float scale)

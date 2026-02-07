@@ -17,7 +17,7 @@ namespace LifeSim
 
             try
             {
-                string jsonString = File.ReadAllText("NPC_dialog.JSON");
+                string jsonString = File.ReadAllText(Path.Combine("NPC_Data", "NPC_dialog.JSON"));
 
                 using (JsonDocument doc = JsonDocument.Parse(jsonString))
                 {

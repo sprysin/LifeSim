@@ -40,8 +40,7 @@ LifeSim is a unique hybrid application that combines the mechanics of a Life Sim
 *   [ ] **Action Parsing**: Teach the AI to output commands like `[ACTION: MOVE_KITCHEN]` which the game engine parses and executes.
 
 ### Step 4: Chat Interface Overhaul
-*   [ ] **Input modes**: Update the UI text box to support a toggle or slash commands (e.g., `/me hands coffee`) for physical actions vs. spoken words.
-*   [ ] **Dynamic History**: Format the chat log so the visual history distinguishes between *Actions* (Italics/Grey) and **Speech** (Bold/Color).
+*   [X] **Dynamic History**: Format the chat log so the visual history distinguishes between *Actions* and **Speech** (Bold/Color).
 
 ### Step 5: Interactive Environment
 *   [ ] **Smart Objects**: Update `TileSystem` or `Interactable` classes so objects can report their status to the AI (e.g., "The TV is ON").
