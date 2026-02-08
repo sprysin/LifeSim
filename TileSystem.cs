@@ -92,7 +92,7 @@ namespace LifeSim
 
             if (!System.IO.File.Exists(tilesetPath))
             {
-                Image img = Raylib.GenImageChecked(64, 64, 8, 8, Color.Brown, Color.DarkGray);
+                Image img = Raylib.GenImageChecked(64, 64, 8, 8, Color.White, Color.DarkGray);
                 Raylib.ExportImage(img, tilesetPath);
                 Raylib.UnloadImage(img);
             }
@@ -209,35 +209,49 @@ namespace LifeSim
                 return false;
 
             // Interaction Layer Check
-            if (HasInteractionLayer)
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+
+            // Check for BLOCKED #ed1c5c (R:237, G:28, B:92)
+            if (pixelColor.R == 237 && pixelColor.G == 28 && pixelColor.B == 92)
             {
-                // Check center of the tile
-                int pixelX = gridX * TileSize + (TileSize / 2);
-                int pixelY = gridY * TileSize + (TileSize / 2);
+                return false;
+            }
 
-                if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
-                {
-                    Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
+            // Check for TERMINAL #4DA6FFFF (Blocked)
+            if (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255)
+            {
+                return false;
+            }
 
-                    // Check for BLOCKED #ed1c5c (R:237, G:28, B:92)
-                    if (pixelColor.R == 237 && pixelColor.G == 28 && pixelColor.B == 92)
-                    {
-                        return false;
-                    }
+            // Check for TV #386cdb (Blocked)
+            if (pixelColor.R == 56 && pixelColor.G == 108 && pixelColor.B == 219)
+            {
+                return false;
+            }
 
-                    // Check for TERMINAL #4DA6FFFF (Blocked)
-                    // R:77, G:166, B:255
-                    if (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255)
-                    {
-                        return false;
-                    }
-
-                    // Check for MAGENTA #D900FFFF (Exit) -> Walkable but triggers transition
-                    // if it's an exit, it should be walkable.
-                }
+            // Check for DIARY #a8b6d3 (Blocked)
+            // R:168, G:182, B:211
+            if (pixelColor.R == 168 && pixelColor.G == 182 && pixelColor.B == 211)
+            {
+                return false;
             }
 
             return true;
+        }
+
+        private static Color GetInteractionColor(int gridX, int gridY)
+        {
+            if (!HasInteractionLayer) return Color.Blank;
+            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight) return Color.Blank;
+
+            int pixelX = gridX * TileSize + (TileSize / 2);
+            int pixelY = gridY * TileSize + (TileSize / 2);
+
+            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
+            {
+                return Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
+            }
+            return Color.Blank;
         }
 
         private static void ExtractForegroundLayer(string bgPath)
@@ -291,26 +305,23 @@ namespace LifeSim
 
         public static bool IsTerminal(int gridX, int gridY)
         {
-            if (!HasInteractionLayer) return false;
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+            // #4DA6FFFF -> R:77, G:166, B:255
+            return (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255);
+        }
 
-            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight)
-                return false;
+        public static bool IsTV(int gridX, int gridY)
+        {
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+            // #386cdb -> R:56, G:108, B:219
+            return (pixelColor.R == 56 && pixelColor.G == 108 && pixelColor.B == 219);
+        }
 
-            int pixelX = gridX * TileSize + (TileSize / 2);
-            int pixelY = gridY * TileSize + (TileSize / 2);
-
-            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
-            {
-                Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
-
-                // #4DA6FFFF -> R:77, G:166, B:255
-                if (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+        public static bool IsDiary(int gridX, int gridY)
+        {
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+            // #a8b6d3 -> R:168, G:182, B:211
+            return (pixelColor.R == 168 && pixelColor.G == 182 && pixelColor.B == 211);
         }
 
         public static bool IsExit(int gridX, int gridY)
@@ -322,49 +333,16 @@ namespace LifeSim
                 return false;
             }
 
-            if (!HasInteractionLayer) return false;
-
-            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight)
-                return false;
-
-            int pixelX = gridX * TileSize + (TileSize / 2);
-            int pixelY = gridY * TileSize + (TileSize / 2);
-
-            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
-            {
-                Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
-
-                // #cc33cc -> R:204, G:51, B:204
-                if (pixelColor.R == 204 && pixelColor.G == 51 && pixelColor.B == 204)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+            // #cc33cc -> R:204, G:51, B:204
+            return (pixelColor.R == 204 && pixelColor.G == 51 && pixelColor.B == 204);
         }
 
         public static bool IsSitSpot(int gridX, int gridY)
         {
-            if (!HasInteractionLayer) return false;
-
-            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight)
-                return false;
-
-            int pixelX = gridX * TileSize + (TileSize / 2);
-            int pixelY = gridY * TileSize + (TileSize / 2);
-
-            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
-            {
-                Color pixelColor = Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
-                // #b3f237 -> R:179, G:242, B:55
-                if (pixelColor.R == 179 && pixelColor.G == 242 && pixelColor.B == 55)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            Color pixelColor = GetInteractionColor(gridX, gridY);
+            // #b3f237 -> R:179, G:242, B:55
+            return (pixelColor.R == 179 && pixelColor.G == 242 && pixelColor.B == 55);
         }
 
         public static void PlaceMetatile(string name, int startX, int startY)
@@ -402,23 +380,13 @@ namespace LifeSim
             }
             else
             {
-                // Fallback: Draw Rectangle? Or just nothing (let tiles draw).
-                // Let's draw a black rect to cover void if needed, but Engine clears screen.
+                // Fallback: Draw Rectangle
+
             }
         }
 
         public static void DrawRoom()
         {
-            // If we have a background image, do we SKIP drawing the tiles?
-            // "use this ... as the backround for now."
-            // The user might still want collision/grid logic.
-            // If I skip drawing the floor, I should still draw the "Rug" if it's an object?
-            // Currently Rug is just tile indices. 
-            // If I stop drawing tiles, I see nothing but the BG.
-            // Let's assume the BG replaces the floor tiles.
-            // For now, let's ONLY draw tiles if BG is missing, OR maybe draw tiles with transparency?
-            // Let's assume BG replaces visuals.
-            // Let's assume BG replaces visuals.
             if (RoomBackground.Id != 0)
             {
                 // Debug Room Special Drawing

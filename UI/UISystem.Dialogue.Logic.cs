@@ -37,6 +37,7 @@ namespace LifeSim
         // Text Input State
         private static bool showTextInput = false;
         private static string inputText = "";
+        private static int inputCursorIndex = 0;
         private static bool isWaitingForAI = false;
         private static float thinkingDots = 0f;
         private static Task<string?>? pendingAITask = null;
@@ -340,31 +341,47 @@ namespace LifeSim
 
         private static void HandleTextInput()
         {
+            // Cursor Navigation
+            if (Raylib.IsKeyPressed(KeyboardKey.Left))
+            {
+                inputCursorIndex--;
+                if (inputCursorIndex < 0) inputCursorIndex = 0;
+            }
+            if (Raylib.IsKeyPressed(KeyboardKey.Right))
+            {
+                inputCursorIndex++;
+                if (inputCursorIndex > inputText.Length) inputCursorIndex = inputText.Length;
+            }
+
             int key = Raylib.GetCharPressed();
             while (key > 0)
             {
                 if (key >= 32 && key <= 126 && inputText.Length < MaxInputLength)
                 {
-                    inputText += (char)key;
+                    inputText = inputText.Insert(inputCursorIndex, ((char)key).ToString());
+                    inputCursorIndex++;
                 }
                 key = Raylib.GetCharPressed();
             }
 
-            if (Raylib.IsKeyPressed(KeyboardKey.Backspace) && inputText.Length > 0)
+            if (Raylib.IsKeyPressed(KeyboardKey.Backspace) && inputText.Length > 0 && inputCursorIndex > 0)
             {
-                inputText = inputText[..^1];
+                inputText = inputText.Remove(inputCursorIndex - 1, 1);
+                inputCursorIndex--;
             }
 
             if (Raylib.IsKeyPressed(KeyboardKey.Enter) && inputText.Length > 0)
             {
                 SubmitPlayerMessage(inputText);
                 inputText = "";
+                inputCursorIndex = 0;
             }
 
             if (Raylib.IsKeyPressed(KeyboardKey.Escape))
             {
                 showTextInput = false;
                 inputText = "";
+                inputCursorIndex = 0;
                 showOptionsMenu = true;
             }
         }
@@ -410,6 +427,7 @@ namespace LifeSim
                 case 0: // Respond
                     showTextInput = true;
                     inputText = "";
+                    inputCursorIndex = 0;
                     isActionMode = false;
                     currentText = "Type your message...";
                     charIndex = currentText.Length;
@@ -418,6 +436,7 @@ namespace LifeSim
                 case 1: // Action
                     showTextInput = true;
                     inputText = "";
+                    inputCursorIndex = 0;
                     isActionMode = true;
                     currentText = "Type your action...";
                     charIndex = currentText.Length;

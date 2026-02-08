@@ -25,9 +25,9 @@ namespace LifeSim
             int spacing = 25;
 
             // Draw Title
-            Vector2 titleSize = Raylib.MeasureTextEx(FontMedium, "LIFESIM", 32, 0);
-            Raylib.DrawTextEx(FontMedium, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2, 20), 32, 0, Color.White);
-            Raylib.DrawTextEx(FontMedium, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2 + 2, 22), 32, 0, new Color(100, 100, 100, 255)); // Shadow
+            Vector2 titleSize = Raylib.MeasureTextEx(FontTitle, "LIFESIM", 32, 0);
+            Raylib.DrawTextEx(FontTitle, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2 + 2, 22), 32, 0, new Color(100, 100, 100, 255)); // Shadow
+            Raylib.DrawTextEx(FontTitle, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2, 20), 32, 0, Color.White);
 
 
             for (int i = 0; i < options.Length; i++)

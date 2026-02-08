@@ -237,13 +237,15 @@ namespace LifeSim
             {
                 currentState = AIState.Walking; // Force walking anim
 
-                int dist = Math.Abs(player.GridX - GridX) + Math.Abs(player.GridY - GridY);
-                if (dist > 1)
+                // improved follow logic
+                var (targetX, targetY) = player.GetBehindPosition();
+                int dist = Math.Abs(targetX - GridX) + Math.Abs(targetY - GridY);
+
+                if (dist > 0)
                 {
-                    // Move towards player
-                    // Simple pathfinding: nice axis first
-                    int dx = player.GridX - GridX;
-                    int dy = player.GridY - GridY;
+                    // Move towards target
+                    int dx = targetX - GridX;
+                    int dy = targetY - GridY;
 
                     // Pace movement
                     walkStepTimer -= dt;
@@ -270,6 +272,7 @@ namespace LifeSim
                         int nextX = GridX + stepX;
                         int nextY = GridY + stepY;
 
+                        // Allow walking into target (since it's behind player, not player itself)
                         if (TileSystem.IsWalkable(nextX, nextY) && !(nextX == player.GridX && nextY == player.GridY))
                         {
                             GridX = nextX;

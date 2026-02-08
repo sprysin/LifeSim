@@ -18,7 +18,7 @@ namespace LifeSim
         private const int NameTagPadding = 4;
         private const int CloseBtnSize = 12;
         private const int OptionSpacing = 16;
-        private const int MaxInputLength = 100;
+        private const int MaxInputLength = 255;
 
         // Text Layout Constants
         private const int DialogueFontSize = 10;
@@ -326,17 +326,51 @@ namespace LifeSim
 
         private static void DrawTextInputContent(int boxW, float offX, float offY, float scale)
         {
-            string displayText = inputText;
-            if ((int)(Raylib.GetTime() * 2) % 2 == 0) displayText += "_";
+            // Calculate visible window for input
+            string display = inputText;
+            int localCursor = inputCursorIndex;
+            float maxW = (boxW - 16) - 8; // Available width
 
-            float maxInputWidth = (boxW - 16) - 8;
-            while (Raylib.MeasureTextEx(FontTiny, displayText, 10, 0).X > maxInputWidth && displayText.Length > 1)
+            // Use FontTiny for logic (Virtual Units)
+            if (Raylib.MeasureTextEx(FontTiny, display, 10, 0).X > maxW)
             {
-                displayText = displayText.Substring(1);
+                // Simple sliding window: Keep cursor in view
+                // 1. If cursor is far, trim start
+                int start = 0;
+                string prefix = display.Substring(0, localCursor);
+                // Keep ~80% of width availability for left side context if possible
+                while (Raylib.MeasureTextEx(FontTiny, prefix.Substring(start), 10, 0).X > maxW * 0.8f && start < localCursor)
+                {
+                    start++;
+                }
+
+                // 2. Add suffix until full
+                int length = localCursor - start;
+                for (int i = localCursor; i < display.Length; i++)
+                {
+                    string test = display.Substring(start, length + 1);
+                    if (Raylib.MeasureTextEx(FontTiny, test, 10, 0).X > maxW) break;
+                    length++;
+                }
+
+                display = display.Substring(start, length);
+                localCursor = localCursor - start;
             }
 
             Vector2 inputPos = new Vector2(offX + ((BoxX + 12) * scale), offY + ((BoxY + 30) * scale));
-            Raylib.DrawTextEx(FontHuge, displayText, inputPos, 10 * scale, 0, Color.White);
+            Raylib.DrawTextEx(FontHuge, display, inputPos, 10 * scale, 0, Color.White);
+
+            // Draw Cursor
+            // Use FontHuge for screen space measurement to match drawing
+            if ((int)(Raylib.GetTime() * 2) % 2 == 0) // Blink
+            {
+                string preCursor = display.Substring(0, localCursor);
+                Vector2 cursorMeasure = Raylib.MeasureTextEx(FontHuge, preCursor, 10 * scale, 0);
+
+                float cursorX = inputPos.X + cursorMeasure.X;
+                Rectangle cursorRect = new Rectangle(cursorX, inputPos.Y, 2 * scale, 10 * scale);
+                Raylib.DrawRectangleRec(cursorRect, Color.Yellow);
+            }
 
             Vector2 hintPos = new Vector2(offX + ((BoxX + 10) * scale), offY + ((BoxY + 50) * scale));
             Raylib.DrawTextEx(FontHuge, "ENTER to send | ESC to cancel", hintPos, 10 * scale, 0, new Color(150, 150, 150, 255));

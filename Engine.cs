@@ -12,7 +12,8 @@ namespace LifeSim
             DebugLocationMenu,
             Exploring,
             Dialogue,
-            Terminal
+            Terminal,
+            TV
         }
 
         public static GameState CurrentState = GameState.Menu;
@@ -125,6 +126,10 @@ namespace LifeSim
                         {
                             CurrentState = GameState.Terminal;
                         }
+                        else if (TVSystem.IsOpen)
+                        {
+                            CurrentState = GameState.TV;
+                        }
                         else if (Raylib.IsKeyPressed(KeyboardKey.V))
                         {
                             // Resume Dialogue with Follower
@@ -155,6 +160,14 @@ namespace LifeSim
                 {
                     TerminalSystem.Update();
                     if (!TerminalSystem.IsOpen)
+                    {
+                        CurrentState = GameState.Exploring;
+                    }
+                }
+                else if (CurrentState == GameState.TV)
+                {
+                    TVSystem.Update();
+                    if (!TVSystem.IsOpen)
                     {
                         CurrentState = GameState.Exploring;
                     }
@@ -234,6 +247,12 @@ namespace LifeSim
                             // Prompt location: 1 tile UP from player (GridY - 1)
                             UISystem.DrawPrompt(player.GridX, player.GridY - 1);
                         }
+
+                        if (player.IsFacingTV())
+                        {
+                            // Prompt location: 1 tile UP from player (GridY - 1)
+                            UISystem.DrawPrompt(player.GridX, player.GridY - 1);
+                        }
                     }
 
                     // Debug Grid (World Space)
@@ -275,6 +294,10 @@ namespace LifeSim
                     else if (CurrentState == GameState.Terminal)
                     {
                         TerminalSystem.Draw();
+                    }
+                    else if (CurrentState == GameState.TV)
+                    {
+                        TVSystem.Draw();
                     }
                 }
 

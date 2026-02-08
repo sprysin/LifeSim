@@ -148,6 +148,13 @@ namespace LifeSim
                 return null; // Interaction handled by terminal
             }
 
+            // Check TV
+            if (TileSystem.IsTV(faceX, faceY))
+            {
+                TVSystem.Open();
+                return null;
+            }
+
             // Check NPCs
             foreach (var npc in npcs)
             {
@@ -175,6 +182,21 @@ namespace LifeSim
             return TileSystem.IsTerminal(faceX, faceY);
         }
 
+        public bool IsFacingTV()
+        {
+            int faceX = GridX;
+            int faceY = GridY;
+
+            switch (currentDir)
+            {
+                case Direction.Up: faceY--; break;
+                case Direction.Down: faceY++; break;
+                case Direction.Left: faceX--; break;
+                case Direction.Right: faceX++; break;
+            }
+            return TileSystem.IsTV(faceX, faceY);
+        }
+
         public void Draw()
         {
             int scale = 4;
@@ -197,6 +219,20 @@ namespace LifeSim
             Rectangle dest = new Rectangle(GridX * scaledTileSize, (GridY + 1) * scaledTileSize - destH, destW, destH);
 
             Raylib.DrawTexturePro(spriteSheet, source, dest, Vector2.Zero, 0f, Color.White);
+        }
+        public (int x, int y) GetBehindPosition()
+        {
+            int backX = GridX;
+            int backY = GridY;
+
+            switch (currentDir)
+            {
+                case Direction.Up: backY++; break;    // Facing Up -> Back is Down
+                case Direction.Down: backY--; break;  // Facing Down -> Back is Up
+                case Direction.Left: backX++; break;  // Facing Left -> Back is Right
+                case Direction.Right: backX--; break; // Facing Right -> Back is Left
+            }
+            return (backX, backY);
         }
     }
 }

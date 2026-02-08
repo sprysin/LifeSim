@@ -11,8 +11,8 @@ namespace LifeSim
             // Default weights - neutral is heavily favored
             Weights = new Dictionary<string, float>
             {
-                { "neutral", 3.0f },      // Most likely
-                { "energized", 1.0f },    // Normal likelihood
+                { "neutral", 2.0f },      // Most likely
+                { "energized", 1.5f },    // Normal likelihood
                 { "grumpy", 0.9f },       // Normal likelihood
                 { "sad", 0.8f },          // Slightly less likely
                 { "bashful", 0.8f },      // Slightly less likely

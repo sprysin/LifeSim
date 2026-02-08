@@ -11,6 +11,7 @@ namespace LifeSim
         public static Font FontSmall;  // Keep for legacy references
         public static Font FontMedium; // Size 32 (Title)
         public static Font FontLarge;  // Size 40 (Prompt)
+        public static Font FontTitle;  // Size 48 (Homescreen Title)
 
 
         public static RenderTexture2D UIBuffer;
@@ -31,12 +32,14 @@ namespace LifeSim
             FontSmall = Raylib.LoadFontEx("pokemon-b-w.otf/pokemon-b-w.otf", 12, null, 0);
             FontMedium = Raylib.LoadFontEx("pokemon-b-w.otf/pokemon-b-w.otf", 32, null, 0);
             FontLarge = Raylib.LoadFontEx("pokemon-b-w.otf/pokemon-b-w.otf", 40, null, 0);
+            FontTitle = Raylib.LoadFontEx("pokemon-b-w.otf/MegamaxJonathanToo-YqOq2.ttf", 48, null, 0);
 
             // Set filter to Point for all to ensure crisp edges
             Raylib.SetTextureFilter(FontTiny.Texture, TextureFilter.Point);
             Raylib.SetTextureFilter(FontSmall.Texture, TextureFilter.Point);
             Raylib.SetTextureFilter(FontMedium.Texture, TextureFilter.Point);
             Raylib.SetTextureFilter(FontLarge.Texture, TextureFilter.Point);
+            Raylib.SetTextureFilter(FontTitle.Texture, TextureFilter.Point);
 
 
             // Setup Render Texture for pixelated UI effect
