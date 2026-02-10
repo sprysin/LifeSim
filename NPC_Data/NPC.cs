@@ -9,7 +9,6 @@ namespace LifeSim
         public int GridY;
         public string SpritePath;
         private Texture2D customSprite;
-        private readonly bool hasCustomSprite = false;
 
         public string Name;
         public string DialogueText;
@@ -62,13 +61,12 @@ namespace LifeSim
             SpritePath = spritePath;
             Scale = scale;
 
-            // Extract Portrait Code if not provided but Name is "Boogie" (Auto-detect or Manual)
+            // Extract Portrait Code based on NPC name
             if (Name == "Boogie") PortraitCode = "B";
-
+            if (Name == "Testern") PortraitCode = "main_char_full_body";
             if (!string.IsNullOrEmpty(SpritePath) && System.IO.File.Exists(SpritePath))
             {
                 customSprite = Raylib.LoadTexture(SpritePath);
-                hasCustomSprite = true;
             }
 
             // Initialize Dialogue from Manager
@@ -240,31 +238,37 @@ namespace LifeSim
             {
                 if (PortraitTexture.Id != 0) Raylib.UnloadTexture(PortraitTexture);
 
-                if (System.IO.File.Exists(currentPath))
+                // Debug logging
+                Console.WriteLine($"[NPC.DrawStatic] {Name} - Trying to load portrait: '{currentPath}'");
+                Console.WriteLine($"[NPC.DrawStatic] {Name} - File exists: {System.IO.File.Exists(currentPath)}");
+                Console.WriteLine($"[NPC.DrawStatic] {Name} - PortraitCode: '{PortraitCode}', PortraitPath: '{PortraitPath}'");
+
+                if (!string.IsNullOrEmpty(currentPath) && System.IO.File.Exists(currentPath))
                 {
                     PortraitTexture = Raylib.LoadTexture(currentPath);
                     loadedPortraitPath = currentPath;
                     Raylib.SetTextureFilter(PortraitTexture, TextureFilter.Bilinear); // High Res needs bilinear
+                    Console.WriteLine($"[NPC.DrawStatic] {Name} - Portrait loaded successfully! Texture ID: {PortraitTexture.Id}");
                 }
                 else
                 {
                     loadedPortraitPath = ""; // Failed
+                    Console.WriteLine($"[NPC.DrawStatic] {Name} - Failed to load portrait!");
                 }
             }
 
             if (PortraitTexture.Id != 0)
             {
-                // Draw Centered
-                // Scale logic: Fit to screen height logic or just use global scale?
-                // User said "High Res". Let's assume 1.0f scale is good if the image is 1080p-ish.
-                // Or use the passed 'scale' param which was ~4.0 for pixel art. 
-                // For VN images (likely 500-1000px height), a scale of 1.0f or fit-to-height is better.
-                // Let's override the 'scale' parameter for Portraits to be auto-fit.
+                // ⬇️ VN SPRITE SIZE ADJUSTMENT - CHANGE THESE VALUES:
+                // The sprite auto-scales to fit screen height. Adjust the percentage below:
 
                 float drawScale = 1.0f;
-                // Auto-fit to 80% screen height?
                 int screenH = Raylib.GetScreenHeight();
-                float maxH = screenH * 0.8f;
+
+                // ⬇️ CHANGE THIS: 0.8f = sprite fits to 80% of screen height
+                // Try: 0.9f for larger, 0.7f for smaller, 1.0f for full height
+                float maxH = screenH * 0.94f;  // ← ADJUST THIS VALUE (0.8f = 80% of screen)
+
                 if (PortraitTexture.Height > maxH)
                 {
                     drawScale = maxH / (float)PortraitTexture.Height;
@@ -273,15 +277,9 @@ namespace LifeSim
                 float finalW = PortraitTexture.Width * drawScale;
                 float finalH = PortraitTexture.Height * drawScale;
 
-                // Position: Center X, Bottom Y (on the panel or screen bottom?)
-                // User said "Bottom screen being a textbox... so text appears...".
-                // Portrait should probably stand *behind* the textbox or just above it.
-                // Let's anchor to Bottom-Center of screen, but shifted up by Panel Height?
-                // Or just Center-Center? 
-                // "boogie in the middle of the screen"
-                // Let's use the passed Y as the anchor.
+                // Position: centerX and centerY are passed from TileSystem.DrawStaticScene
                 Rectangle source = new Rectangle(0, 0, PortraitTexture.Width, PortraitTexture.Height);
-                Rectangle dest = new Rectangle(centerX - finalW / 2, centerY - finalH, finalW, finalH);
+                Rectangle dest = new Rectangle(centerX - finalW / 2, centerY - finalH + 100, finalW + 20, finalH);
 
                 Raylib.DrawTexturePro(PortraitTexture, source, dest, Vector2.Zero, 0f, Color.White);
             }

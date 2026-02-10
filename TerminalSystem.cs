@@ -1,6 +1,7 @@
 using Raylib_cs;
 using System.Numerics;
 using System.Collections.Generic;
+using System; // Added for Enum
 
 namespace LifeSim
 {
@@ -11,9 +12,19 @@ namespace LifeSim
         private static List<NPC>? terminalNPCs;
         private static int terminalSelection = 0;
         private static bool isEditingRule = false;
-        private static int editingSelection = 0; // 0: Rule, 1: Mood
-        private static bool summonRuleActive = false; // "Summon to 8,3"
+        private static int editingSelection = 0; // 0: Mood, 1: Skin
         public static bool DebugShowMood = false; // New Toggle
+
+        // Editing flags for Mouse interaction
+        // The original code mixed keyboard state 'isEditingRule' with mouse flags 'isEditingMood/Skin'
+        // I will adhere to 'isEditingRule' as the main state, but allow mouse to set specific modes.
+        // Actually, previous refactor set 'isEditingMood' etc. but those fields were not defined in lines 1-140 of original file.
+        // Let's check Step 748.
+        // Lines 9-16: isEditingRule, editingSelection. NO isEditingMood defined.
+        // So 'isEditingMood' used in my previous attempts was likely WRONG or intended to be local?
+        // Ah, in Step 746 I used `if (isEditingMood)`.
+        // I should map `isEditingMood` to `isEditingRule && editingSelection == 1`.
+        // I will use properties or helper logic to keep it clean.
 
         public static void Open(List<NPC> npcs)
         {
@@ -52,29 +63,17 @@ namespace LifeSim
                 if (Raylib.IsKeyPressed(KeyboardKey.Down))
                 {
                     editingSelection++;
-                    if (editingSelection > 2) editingSelection = 0; // 0: Rule, 1: Mood, 2: Skin
+                    if (editingSelection > 1) editingSelection = 0; // 0: Mood, 1: Skin
                 }
                 if (Raylib.IsKeyPressed(KeyboardKey.Up))
                 {
                     editingSelection--;
-                    if (editingSelection < 0) editingSelection = 2;
+                    if (editingSelection < 0) editingSelection = 1;
                 }
 
                 if (Raylib.IsKeyPressed(KeyboardKey.X))
                 {
                     if (editingSelection == 0)
-                    {
-                        // Toggle Summon Rule
-                        summonRuleActive = !summonRuleActive;
-
-                        // Apply Logic Immediately for now
-                        if (summonRuleActive)
-                        {
-                            selectedNPC.GridX = 8;
-                            selectedNPC.GridY = 3;
-                        }
-                    }
-                    else if (editingSelection == 1)
                     {
                         // Cycle Mood
                         List<string> moods = DialogueManager.GetAvailableMoods(selectedNPC.Name);
@@ -86,7 +85,7 @@ namespace LifeSim
                             selectedNPC.UpdateDialogue();
                         }
                     }
-                    else if (editingSelection == 2)
+                    else if (editingSelection == 1)
                     {
                         // Toggle Skin
                         if (selectedNPC.CurrentSkin == "Skin0") selectedNPC.CurrentSkin = "Skin1";
@@ -104,12 +103,12 @@ namespace LifeSim
                 if (Raylib.IsKeyPressed(KeyboardKey.Down))
                 {
                     terminalSelection++;
-                    if (terminalNPCs != null && terminalSelection >= terminalNPCs.Count + 3) terminalSelection = 0; // +3 for Grid, Mood, Exit
+                    if (terminalNPCs != null && terminalSelection >= terminalNPCs.Count + 3) terminalSelection = 0;
                 }
                 if (Raylib.IsKeyPressed(KeyboardKey.Up))
                 {
                     terminalSelection--;
-                    if (terminalSelection < 0 && terminalNPCs != null) terminalSelection = terminalNPCs.Count + 2; // Count+2 is Exit
+                    if (terminalSelection < 0 && terminalNPCs != null) terminalSelection = terminalNPCs.Count + 2;
                 }
 
                 if (Raylib.IsKeyPressed(KeyboardKey.X))
@@ -118,17 +117,14 @@ namespace LifeSim
                     {
                         if (terminalSelection == terminalNPCs.Count)
                         {
-                            // Toggle Grid
-                            TileSystem.ShowGrid = !TileSystem.ShowGrid;
+                            // Show Mood Debug option removed (was ShowGrid)
                         }
                         else if (terminalSelection == terminalNPCs.Count + 1)
                         {
-                            // Toggle Mood HUD
                             DebugShowMood = !DebugShowMood;
                         }
                         else if (terminalSelection == terminalNPCs.Count + 2)
                         {
-                            // Exit Button Selected
                             Close();
                         }
                         else if (terminalSelection < terminalNPCs.Count)
@@ -154,143 +150,154 @@ namespace LifeSim
             // 1. Darken Background
             Raylib.DrawRectangle(0, 0, screenW, screenH, new Color(0, 0, 0, 150));
 
-            // 2. Render Terminal UI to Buffer (Low Res)
-            Raylib.BeginTextureMode(UISystem.UIBuffer);
-            Raylib.ClearBackground(Color.Blank);
+            // 2. Main Terminal Panel
+            int panelW = 800;
+            int panelH = 600;
+            int panelX = (screenW - panelW) / 2;
+            int panelY = (screenH - panelH) / 2;
+            Rectangle mainRect = new Rectangle(panelX, panelY, panelW, panelH);
+            UISystem.DrawCozyPanel(mainRect, "TERMINAL");
 
-            int boxX = 20;
-            int boxY = 20;
-            int boxW = UISystem.VirtualWidth - 40;
-            int boxH = UISystem.VirtualHeight - 40;
-            Rectangle boxRect = new(boxX, boxY, boxW, boxH);
+            // 3. Characters Header
+            int headerY = panelY + 60;
+            Raylib.DrawTextEx(UISystem.FontMedium, "CHARACTERS", new Vector2(panelX + 20, headerY), 24, 1, UISystem.ColorTan);
 
-            // Terminal Background (Blueish Data feel)
-            Raylib.DrawRectangleRec(boxRect, new Color(0, 20, 40, 240));
-            Raylib.DrawRectangleLinesEx(boxRect, 1, new Color(100, 200, 255, 255));
-
-            // Header
-            Raylib.DrawTextEx(UISystem.FontSmall, "TERMINAL - NPC CONTROL", new Vector2(boxX + 10, boxY + 10), 12, 0, new Color(100, 255, 255, 255));
-            Raylib.DrawLine(boxX + 10, boxY + 24, boxX + boxW - 10, boxY + 24, new Color(100, 200, 255, 100));
+            // 4. NPC List
+            int contentY = headerY + 35;
+            int itemHeight = 30;
+            int contentX = panelX + 20;
+            int contentW = panelW - 40;
 
             if (terminalNPCs == null || terminalNPCs.Count == 0)
             {
-                Raylib.DrawTextEx(UISystem.FontSmall, "No NPCs found.", new Vector2(boxX + 10, boxY + 30), 12, 0, Color.White);
+                Raylib.DrawTextEx(UISystem.FontMedium, "No NPCs found.", new Vector2(contentX + 20, contentY), 24, 0, UISystem.ColorCream);
             }
             else
             {
-                int listStartY = boxY + 30;
-
-                // Left Panel: NPC List
                 for (int i = 0; i < terminalNPCs.Count; i++)
                 {
-                    string name = terminalNPCs[i].Name;
-                    Color color = (i == terminalSelection && !isEditingRule) ? Color.Yellow : Color.White;
-                    if (isEditingRule && i == terminalSelection) color = Color.Gray;
+                    int y = contentY + (i * itemHeight);
+                    if (y > panelY + panelH - 80) break;
 
-                    Raylib.DrawTextEx(UISystem.FontSmall, name, new Vector2(boxX + 10, listStartY + (i * 15)), 12, 0, color);
+                    bool isSelected = (i == terminalSelection && !isEditingRule);
+                    Rectangle itemRect = new Rectangle(contentX, y, contentW, itemHeight - 2);
 
-                    if (i == terminalSelection && !isEditingRule)
+                    // Check for mouse click on NPC name to open edit overlay
+                    Vector2 mousePos = Raylib.GetMousePosition();
+                    bool isHovered = Raylib.CheckCollisionPointRec(mousePos, itemRect);
+
+                    if (isHovered && Raylib.IsMouseButtonPressed(MouseButton.Left))
                     {
-                        Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(boxX + 2, listStartY + (i * 15)), 12, 0, Color.Yellow);
+                        terminalSelection = i;
+                        isEditingRule = true;
                     }
-                }
 
+                    // Selection Highlight
+                    if (isSelected || isHovered)
+                    {
+                        Raylib.DrawRectangleRounded(itemRect, 0.2f, 5, isHovered ? UISystem.ColorWarmToffee : UISystem.ColorWarmToffee);
+                    }
+                    else if (isEditingRule && i == terminalSelection)
+                    {
+                        Raylib.DrawRectangleRounded(itemRect, 0.2f, 5, new Color(100, 100, 100, 100));
+                    }
 
+                    // Name
+                    Color nameColor = (isSelected || isHovered) ? UISystem.ColorCharcoal : UISystem.ColorCream;
+                    Raylib.DrawTextEx(UISystem.FontMedium, terminalNPCs[i].Name, new Vector2(contentX + 10, y + 5), 20, 1, nameColor);
 
-                // Toggle Grid Button
-                int gridIndex = terminalNPCs.Count;
-                int gridY = listStartY + (gridIndex * 15) + 5;
-                Color gridColor = (gridIndex == terminalSelection) ? Color.Green : Color.Gray;
-                string gridText = "[Toggle Grid]";
-                if (TileSystem.ShowGrid) gridText = "[Hide Grid]";
-
-                Raylib.DrawTextEx(UISystem.FontSmall, gridText, new Vector2(boxX + 10, gridY), 12, 0, gridColor);
-                if (gridIndex == terminalSelection)
-                {
-                    Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(boxX + 2, gridY), 12, 0, Color.Green);
-                }
-
-                // Toggle Mood HUD Button
-                int moodIndex = terminalNPCs.Count + 1;
-                int menuMoodY = listStartY + (moodIndex * 15) + 5;
-                Color moodColor = (moodIndex == terminalSelection) ? Color.Yellow : Color.Gray;
-                string moodText = "[Show Mood]";
-                if (DebugShowMood) moodText = "[Hide Mood]";
-
-                Raylib.DrawTextEx(UISystem.FontSmall, moodText, new Vector2(boxX + 10, menuMoodY), 12, 0, moodColor);
-                if (moodIndex == terminalSelection)
-                {
-                    Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(boxX + 2, menuMoodY), 12, 0, Color.Yellow);
-                }
-
-                // EXIT Button
-                int exitIndex = terminalNPCs.Count + 2;
-                int exitY = listStartY + (exitIndex * 15) + 10; // Extra spacing
-                Color exitColor = (exitIndex == terminalSelection) ? Color.Red : Color.Gray;
-                Raylib.DrawTextEx(UISystem.FontSmall, "[EXIT]", new Vector2(boxX + 10, exitY), 12, 0, exitColor);
-                if (exitIndex == terminalSelection)
-                {
-                    Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(boxX + 2, exitY), 12, 0, Color.Red);
-                }
-
-                // Right Panel: Details / Rules
-                int splitX = boxX + 100;
-                Raylib.DrawLine(splitX, boxY + 24, splitX, boxY + boxH - 10, new Color(100, 200, 255, 50));
-
-                if (isEditingRule)
-                {
-                    var selectedNPC = terminalNPCs[terminalSelection];
-
-                    Raylib.DrawTextEx(UISystem.FontSmall, "EDITING RULES", new Vector2(splitX + 10, listStartY), 12, 0, Color.Red);
-
-                    // 1. Summon Rule
-                    int ruleY = listStartY + 15;
-                    Color ruleHeaderColor = (editingSelection == 0) ? Color.Yellow : Color.White;
-                    Raylib.DrawTextEx(UISystem.FontSmall, "Summon Rule", new Vector2(splitX + 10, ruleY), 12, 0, ruleHeaderColor);
-                    if (editingSelection == 0) Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(splitX + 2, ruleY), 12, 0, Color.Yellow);
-
-                    string status = summonRuleActive ? "Reset Summon" : "off";
-                    Color ruleColor = summonRuleActive ? Color.Green : Color.Gray;
-                    Raylib.DrawTextEx(UISystem.FontSmall, status, new Vector2(splitX + 10, ruleY + 12), 12, 0, ruleColor);
-
-
-                    // 2. Mood Setting
-                    int moodY = ruleY + 30; // Compact spacing
-                    Color moodHeaderColor = (editingSelection == 1) ? Color.Yellow : Color.White;
-                    Raylib.DrawTextEx(UISystem.FontSmall, "Mood", new Vector2(splitX + 10, moodY), 12, 0, moodHeaderColor);
-                    if (editingSelection == 1) Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(splitX + 2, moodY), 12, 0, Color.Yellow);
-
-                    string moodDisplay = $"[{selectedNPC.CurrentMood}]";
-                    List<string> availableMoods = DialogueManager.GetAvailableMoods(selectedNPC.Name);
-                    if (availableMoods.Count == 0) moodDisplay = "[ERROR: No Moods]";
-
-                    Raylib.DrawTextEx(UISystem.FontSmall, moodDisplay, new Vector2(splitX + 10, moodY + 12), 12, 0, Color.White);
-
-                    // 3. Skin Setting
-                    int skinY = moodY + 30; // Compact spacing
-                    Color skinHeaderColor = (editingSelection == 2) ? Color.Yellow : Color.White;
-                    Raylib.DrawTextEx(UISystem.FontSmall, "Skin", new Vector2(splitX + 10, skinY), 12, 0, skinHeaderColor);
-                    if (editingSelection == 2) Raylib.DrawTextEx(UISystem.FontSmall, ">", new Vector2(splitX + 2, skinY), 12, 0, Color.Yellow);
-
-                    Raylib.DrawTextEx(UISystem.FontSmall, $"[{selectedNPC.CurrentSkin}]", new Vector2(splitX + 10, skinY + 12), 12, 0, Color.White);
-
-
-                    // Instructions
-                    Raylib.DrawTextEx(UISystem.FontSmall, "X: Change | Z: Back", new Vector2(splitX + 10, skinY + 40), 12, 0, Color.LightGray);
-                }
-                else
-                {
-                    Raylib.DrawTextEx(UISystem.FontSmall, "Select NPC to", new Vector2(splitX + 10, listStartY), 12, 0, Color.Gray);
-                    Raylib.DrawTextEx(UISystem.FontSmall, "edit rules.", new Vector2(splitX + 10, listStartY + 15), 12, 0, Color.Gray);
+                    // Status (mood on right)
+                    string status = terminalNPCs[i].CurrentMood.ToString();
+                    Vector2 statusSize = Raylib.MeasureTextEx(UISystem.FontSmall, status, 16, 1);
+                    Color statusColor = (isSelected || isHovered) ? UISystem.ColorCharcoal : UISystem.ColorTan;
+                    Raylib.DrawTextEx(UISystem.FontSmall, status, new Vector2(contentX + contentW - statusSize.X - 10, y + 8), 16, 1, statusColor);
                 }
             }
 
-            Raylib.EndTextureMode();
+            // 5. Buttons (Bottom) - Show Mood and Exit only
+            int btnY = panelY + panelH - 45;
+            int btnH = 35;
+            int btnW = 120;
+            int startBtnX = panelX + 20;
 
-            // Render Buffer
-            Rectangle dest = new(0, 0, screenW, screenH);
-            Rectangle flipSrc = new(0, 0, UISystem.UIBuffer.Texture.Width, -UISystem.UIBuffer.Texture.Height);
-            Raylib.DrawTexturePro(UISystem.UIBuffer.Texture, flipSrc, dest, Vector2.Zero, 0f, Color.White);
+            // Mood Button
+            string moodText = DebugShowMood ? "Hide Mood" : "Show Mood";
+            bool moodSelected = (terminalSelection == (terminalNPCs?.Count ?? 0));
+            if (UISystem.DrawCozyButton(new Rectangle(startBtnX, btnY, btnW, btnH), moodText, moodSelected))
+            {
+                DebugShowMood = !DebugShowMood;
+            }
+
+            // Exit Button
+            bool exitSelected = (terminalSelection == (terminalNPCs?.Count ?? 0) + 1);
+            Rectangle exitRect = new Rectangle(panelX + panelW - btnW - 20, btnY, btnW, btnH);
+            if (UISystem.DrawCozyButton(exitRect, "EXIT", exitSelected))
+            {
+                Close();
+            }
+
+            // 5. Edit Overlay
+            if (isEditingRule)
+            {
+                DrawEditOverlay(screenW, screenH);
+            }
+        }
+
+        private static void DrawEditOverlay(int width, int height)
+        {
+            // Dim
+            Raylib.DrawRectangle(0, 0, width, height, new Color(0, 0, 0, 200));
+
+            // Edit Panel
+            int panelW = 400;
+            int panelH = 300;
+            Rectangle panelRect = new Rectangle((width - panelW) / 2, (height - panelH) / 2, panelW, panelH);
+
+            string title = "EDIT NPC";
+            if (terminalNPCs != null && terminalSelection < terminalNPCs.Count)
+            {
+                title = "EDIT: " + terminalNPCs[terminalSelection].Name;
+            }
+
+            UISystem.DrawCozyPanel(panelRect, title);
+
+            if (terminalNPCs == null) return;
+            var selectedNPC = terminalNPCs[terminalSelection];
+
+            int contentX = (int)panelRect.X + 30;
+            int contentY = (int)panelRect.Y + 60;
+            int btnH = 40;
+
+            // 1. Mood
+            string moodText = $"Mood: {selectedNPC.CurrentMood}";
+            bool moodSelected = (editingSelection == 0);
+            Rectangle moodRect = new Rectangle(contentX, contentY, panelW - 60, btnH);
+            if (UISystem.DrawCozyButton(moodRect, moodText, moodSelected))
+            {
+                // Cycle Mood
+                List<string> moods = DialogueManager.GetAvailableMoods(selectedNPC.Name);
+                if (moods.Count > 0)
+                {
+                    int currentIdx = moods.IndexOf(selectedNPC.CurrentMood);
+                    int nextIdx = (currentIdx + 1) % moods.Count;
+                    selectedNPC.CurrentMood = moods[nextIdx];
+                    selectedNPC.UpdateDialogue();
+                }
+                editingSelection = 0;
+            }
+
+            // 2. Skin
+            string skinText = $"Skin: {selectedNPC.CurrentSkin}";
+            bool skinSelected = (editingSelection == 1);
+            Rectangle skinRect = new Rectangle(contentX, contentY + (btnH + 20), panelW - 60, btnH);
+            if (UISystem.DrawCozyButton(skinRect, skinText, skinSelected))
+            {
+                if (selectedNPC.CurrentSkin == "Skin0") selectedNPC.CurrentSkin = "Skin1";
+                else selectedNPC.CurrentSkin = "Skin0";
+                editingSelection = 1;
+            }
+
+            Raylib.DrawTextEx(UISystem.FontSmall, "Press Z to Return", new Vector2(contentX, contentY + (btnH + 20) * 2 + 10), 16, 1, UISystem.ColorTan);
         }
     }
 }

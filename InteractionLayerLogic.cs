@@ -9,7 +9,7 @@ namespace LifeSim
         private static bool HasInteractionLayer = false;
         private static int GridWidth;
         private static int GridHeight;
-        private static int TileSize = TileSystem.TileSize;
+        private static int TileSize = 16;
 
         public static void Load(string interactionPath, int width, int height)
         {

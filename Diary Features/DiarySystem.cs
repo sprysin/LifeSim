@@ -10,13 +10,6 @@ namespace LifeSim
         private static int selection = 0;
         private static string[] options = { "Read Diary (Coming Soon)", "Write Diary (Coming Soon)" };
 
-        // UI Layout
-        private const int PanelW = 160; // Slightly wider for longer text
-        private const int PanelH = 140;
-        private const int PanelX = UISystem.VirtualWidth - PanelW - 10;
-        private const int PanelY = (UISystem.VirtualHeight - PanelH) / 2;
-        private const int GridSize = 10;
-
         public static void Initialize()
         {
             // No assets to load yet
@@ -37,7 +30,7 @@ namespace LifeSim
         {
             if (!IsOpen) return;
 
-            // Navigation
+            // Keyboard Navigation
             if (Raylib.IsKeyPressed(KeyboardKey.Down))
             {
                 selection++;
@@ -49,18 +42,10 @@ namespace LifeSim
                 if (selection < 0) selection = options.Length - 1;
             }
 
-            // Selection
-            if (Raylib.IsKeyPressed(KeyboardKey.X))
+            // Keyboard Selection
+            if (Raylib.IsKeyPressed(KeyboardKey.X) || Raylib.IsKeyPressed(KeyboardKey.Enter))
             {
-                // Placeholder actions for now
-                if (selection == 0)
-                {
-                    // Read Diary
-                }
-                else if (selection == 1)
-                {
-                    // Write Diary
-                }
+                ExecuteSelection(selection);
             }
 
             // Exit
@@ -77,62 +62,54 @@ namespace LifeSim
             int screenW = Raylib.GetScreenWidth();
             int screenH = Raylib.GetScreenHeight();
 
-            // Render to UI Buffer
-            Raylib.BeginTextureMode(UISystem.UIBuffer);
-            Raylib.ClearBackground(Color.Blank);
+            // Darken Background
+            Raylib.DrawRectangle(0, 0, screenW, screenH, new Color(0, 0, 0, 150));
 
-            // Draw Panel Background
-            Rectangle panelRect = new Rectangle(PanelX, PanelY, PanelW, PanelH);
-            Raylib.DrawRectangleRec(panelRect, new Color(0, 0, 0, 220));
+            // Main Stick to Screen Center
+            int panelW = 400;
+            int panelH = 300;
+            Rectangle panelRect = new Rectangle((screenW - panelW) / 2, (screenH - panelH) / 2, panelW, panelH);
 
-            // Draw Grid
-            Color gridColor = new Color(200, 200, 200, 30);
-
-            // Vertical lines
-            for (int x = 0; x <= PanelW; x += GridSize)
-            {
-                Raylib.DrawLine(PanelX + x, PanelY, PanelX + x, PanelY + PanelH, gridColor);
-            }
-            // Horizontal lines
-            for (int y = 0; y <= PanelH; y += GridSize)
-            {
-                Raylib.DrawLine(PanelX, PanelY + y, PanelX + PanelW, PanelY + y, gridColor);
-            }
-
-
-            Raylib.DrawRectangleLinesEx(panelRect, 1, Color.White);
-
-            // Draw Header
-            string title = "DIARY";
-            Vector2 titleSize = Raylib.MeasureTextEx(UISystem.FontSmall, title, 12, 0);
-            Raylib.DrawTextEx(UISystem.FontSmall, title, new Vector2(PanelX + (PanelW - titleSize.X) / 2, PanelY + 10), 12, 0, Color.SkyBlue);
+            UISystem.DrawCozyPanel(panelRect, "DIARY");
 
             // Draw Options
-            int startY = PanelY + 35;
+            int startY = (int)panelRect.Y + 80;
+            int btnH = 50;
+            int btnW = panelW - 60;
             int spacing = 20;
 
             for (int i = 0; i < options.Length; i++)
             {
+                Rectangle btnRect = new Rectangle(panelRect.X + 30, startY + (i * (btnH + spacing)), btnW, btnH);
                 bool isSelected = (i == selection);
-                string text = options[i];
-                Color textColor = isSelected ? Color.White : Color.Gray;
 
-                if (isSelected)
+                // Check for mouse hover to update selection
+                if (Raylib.CheckCollisionPointRec(Raylib.GetMousePosition(), btnRect))
                 {
-                    Raylib.DrawTextEx(UISystem.FontSmall, "> " + text, new Vector2(PanelX + 15, startY + (i * spacing)), 12, 0, textColor);
+                    selection = i;
+                    isSelected = true;
                 }
-                else
+
+                if (UISystem.DrawCozyButton(btnRect, options[i], isSelected))
                 {
-                    Raylib.DrawTextEx(UISystem.FontSmall, "  " + text, new Vector2(PanelX + 15, startY + (i * spacing)), 12, 0, textColor);
+                    ExecuteSelection(i);
                 }
             }
 
-            Raylib.EndTextureMode();
+            // Hint
+            Raylib.DrawTextEx(UISystem.FontSmall, "Press Z to Close", new Vector2(panelRect.X + 30, panelRect.Y + panelH - 30), 16, 1, UISystem.ColorTan);
+        }
 
-            // Draw Buffer to Screen
-            Rectangle dest = new Rectangle(0, 0, screenW, screenH);
-            Rectangle flipSrc = new Rectangle(0, 0, UISystem.UIBuffer.Texture.Width, -UISystem.UIBuffer.Texture.Height);
-            Raylib.DrawTexturePro(UISystem.UIBuffer.Texture, flipSrc, dest, Vector2.Zero, 0f, Color.White);
+        private static void ExecuteSelection(int index)
+        {
+            if (index == 0)
+            {
+                // Read Diary
+            }
+            else if (index == 1)
+            {
+                // Write Diary
+            }
         }
     }
 }

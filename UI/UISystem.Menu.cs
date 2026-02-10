@@ -32,9 +32,10 @@ namespace LifeSim
             Vector2 titleSize = Raylib.MeasureTextEx(FontTitle, title, titleSizeVal, titleSpacing);
             Vector2 titlePos = new Vector2((screenW - titleSize.X) / 2, screenH / 4);
 
-            // Unsmoosh Title
-            Raylib.DrawTextEx(FontTitle, title, new Vector2(titlePos.X + 10, titlePos.Y + 10), titleSizeVal, titleSpacing, new Color(100, 100, 100, 255)); // Shadow
-            Raylib.DrawTextEx(FontTitle, title, titlePos, titleSizeVal, titleSpacing, Color.White);
+            // Shadow
+            Raylib.DrawTextEx(FontTitle, title, new Vector2(titlePos.X + 4, titlePos.Y + 4), titleSizeVal, titleSpacing, ColorEspresso);
+            // Main
+            Raylib.DrawTextEx(FontTitle, title, titlePos, titleSizeVal, titleSpacing, ColorCream);
 
             Vector2 mousePos = Raylib.GetMousePosition();
 
@@ -43,46 +44,18 @@ namespace LifeSim
                 string text = options[i];
                 Rectangle btnRect = new Rectangle((screenW - btnW) / 2, startY + (i * spacing), btnW, btnH);
 
-                // Mouse Interaction
+                // Mouse Interaction (Update Selection)
                 if (Raylib.CheckCollisionPointRec(mousePos, btnRect))
                 {
                     selection = i;
-                    if (Raylib.IsMouseButtonPressed(MouseButton.Left))
-                    {
-                        clicked = true;
-                    }
                 }
 
                 bool isSelected = (i == selection);
 
-                // Modern Button UI (Black/White High Contrast)
-                Color btnColor = isSelected ? Color.White : new Color(0, 0, 0, 200);
-                Color textColor = isSelected ? Color.Black : Color.White;
-                Color borderColor = Color.White;
-
-                // Shadow
-                if (!isSelected)
+                // Draw Cozy Button
+                if (DrawCozyButton(btnRect, text, isSelected))
                 {
-                    Raylib.DrawRectangle((int)btnRect.X + 4, (int)btnRect.Y + 4, (int)btnRect.Width, (int)btnRect.Height, new Color(0, 0, 0, 100));
-                }
-
-                // Base
-                Raylib.DrawRectangleRec(btnRect, btnColor);
-                Raylib.DrawRectangleLinesEx(btnRect, 2, borderColor);
-
-                // Text
-                float fontSize = 40;
-                float textSpacing = 4; // Unsmoosh
-                Vector2 textSize = Raylib.MeasureTextEx(FontLarge, text, fontSize, textSpacing);
-                Vector2 textPos = new Vector2(btnRect.X + (btnRect.Width - textSize.X) / 2, btnRect.Y + (btnRect.Height - textSize.Y) / 2);
-
-                Raylib.DrawTextEx(FontLarge, text, textPos, fontSize, textSpacing, textColor);
-
-                if (isSelected)
-                {
-                    float arrowSize = 40;
-                    Raylib.DrawTextEx(FontLarge, ">", new Vector2(btnRect.X - 40, btnRect.Y + 10), arrowSize, textSpacing, Color.White);
-                    Raylib.DrawTextEx(FontLarge, "<", new Vector2(btnRect.X + btnRect.Width + 20, btnRect.Y + 10), arrowSize, textSpacing, Color.White);
+                    clicked = true;
                 }
             }
 
@@ -94,15 +67,15 @@ namespace LifeSim
             int screenW = Raylib.GetScreenWidth();
             int screenH = Raylib.GetScreenHeight();
 
-            // Dark Background
-            Raylib.ClearBackground(new Color(10, 10, 15, 255));
+            // Dark Cozy Background
+            Raylib.ClearBackground(ColorCharcoal);
 
-            // Scrolling Grid (Same as dialogue box but fullscreen)
+            // Scrolling Grid (Subtle)
             scrollTimer += Raylib.GetFrameTime() * 10f;
             int gridSize = 40;
             float offset = (float)(Raylib.GetTime() * 10.0) % gridSize;
 
-            Color gridColor = new Color(50, 50, 60, 255);
+            Color gridColor = new Color(46, 26, 18, 50); // Espresso low alpha
 
             // Vertical Lines
             for (int i = 0; i < screenW / gridSize + 1; i++)

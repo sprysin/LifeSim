@@ -22,7 +22,6 @@ namespace LifeSim
         public static GameState CurrentState = GameState.Menu;
         public static List<NPC> ActiveNPCs = new List<NPC>();
         private int menuSelection = 0;
-        private int debugLocationSelection = 0;
 
         // Transition State
         private float fadeAlpha = 0f;
@@ -35,7 +34,7 @@ namespace LifeSim
             Raylib.SetExitKey(KeyboardKey.Null);
 
             // Initialize Systems
-            TileSystem.Initialize();
+            SceneSystem.Initialize();
             UISystem.Initialize();
             GeminiService.Initialize();
             InputSystem.Initialize(); // New System
@@ -54,7 +53,7 @@ namespace LifeSim
                     {
                         if (menuSelection == 0) // Start (Living Room)
                         {
-                            TileSystem.LoadScene(2, ActiveNPCs); // Living Room
+                            SceneSystem.LoadScene(2, ActiveNPCs); // Living Room
 
                             // Auto-Start Dialogue with Boogie
                             NPC? boogie = ActiveNPCs.Find(n => n.Name == "Boogie");
@@ -74,7 +73,7 @@ namespace LifeSim
                         }
                         else if (menuSelection == 1) // Debug Room
                         {
-                            TileSystem.LoadScene(0, ActiveNPCs); // Debug Room
+                            SceneSystem.LoadScene(0, ActiveNPCs); // Debug Room
                             CurrentState = GameState.Scene;
                         }
                         else if (menuSelection == 2) // Quit
@@ -198,7 +197,7 @@ namespace LifeSim
                     {
                         if (mouseSel == 0) // Start
                         {
-                            TileSystem.LoadScene(2, ActiveNPCs); // Living Room
+                            SceneSystem.LoadScene(2, ActiveNPCs); // Living Room
 
                             // Auto-Start Dialogue with Boogie
                             NPC? boogie = ActiveNPCs.Find(n => n.Name == "Boogie");
@@ -218,7 +217,7 @@ namespace LifeSim
                         }
                         else if (mouseSel == 1) // Debug Room
                         {
-                            TileSystem.LoadScene(0, ActiveNPCs);
+                            SceneSystem.LoadScene(0, ActiveNPCs);
                             CurrentState = GameState.Scene;
                         }
                         else if (mouseSel == 2) // Quit
@@ -230,7 +229,7 @@ namespace LifeSim
                 else
                 {
                     // Draw Static Scene (Background + NPC)
-                    TileSystem.DrawStaticScene(ActiveNPCs);
+                    SceneSystem.DrawStaticScene(ActiveNPCs);
 
                     // Draw UI Layers
                     if (CurrentState == GameState.Scene || CurrentState == GameState.Dialogue)

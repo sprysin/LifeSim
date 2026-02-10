@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace LifeSim
 {
-    public static class TileSystem
+    public static class SceneSystem
     {
         // 16x16 pixels per tile (Standard 16-bit style)
         public const int TileSize = 16;
@@ -94,16 +94,16 @@ namespace LifeSim
             // Define Scenes
             // Debug Room
             SceneData debugRoom = new SceneData("Debug Room", "Tilesets/output.png", "", new Vector2(2, 2), 1); // Spawn (2,2)
-            debugRoom.NPCs.Add(new NPCSpawnData(1, 3, "Testern", "Hello! I am Testern. Welcome to the Debug Room!", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"))); // Testern (1,3)
+            debugRoom.NPCs.Add(new NPCSpawnData(1, 3, "Testern", "Hello! I am Testern. Welcome to the Debug Room!", System.IO.Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"))); // Testern (1,3)
 
             // Kitchen
             SceneData kitchen = new SceneData("Kitchen", "Tilesets/kitchen.png", "Tilesets/interaction Layer_Kitchen.png", new Vector2(4, 5), 1);
             // Add Boogie
-            kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
+            kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", System.IO.Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), System.IO.Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             // Living Room
             SceneData livingRoom = new SceneData("Living Room", "Scene_Backgrounds/Living_Room_background.jpg", "Tilesets/interaction Layer_Living_room.png", new Vector2(4, 5), 1);
-            livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
+            livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", System.IO.Path.Combine("NPC_Data", "Visual Novel Images", "Boogie", "B_Neutral_Skin0.png"), System.IO.Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             Scenes.Add(debugRoom);
             Scenes.Add(kitchen);
@@ -274,13 +274,6 @@ namespace LifeSim
 
                 if (activeNPC != null)
                 {
-
-                    // - X position: screenW / 2  (centers horizontally)
-                    // - Y position: screenH  (anchors at bottom, sprite extends upward)
-                    // - Scale: 1.0f  (increase for larger sprite, decrease for smaller)
-                    //   Example: 1.2f = 20% larger, 0.8f = 20% smaller
-                    // - To adjust height: change the Y offset (e.g., screenH - 50 moves it up 50 pixels)
-
                     Vector2 shake = UISystem.GetShakeOffset();
                     activeNPC.DrawStatic(screenW / 2 + (int)shake.X, screenH + (int)shake.Y, 1.0f);
                 }

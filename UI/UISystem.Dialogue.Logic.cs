@@ -20,7 +20,6 @@ namespace LifeSim
         private static bool showChatLog = false;
         private static List<(string Name, string Text)> conversationHistory = new List<(string Name, string Text)>();
         private static float chatLogScroll = 0f;
-        private static float chatLogContentHeight = 0f;
 
         // Options Menu State
         private static bool showOptionsMenu = false;

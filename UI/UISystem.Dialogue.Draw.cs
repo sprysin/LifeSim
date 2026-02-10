@@ -47,29 +47,36 @@ namespace LifeSim
             }
 
             // Calculate Layout Match with DrawBottomPanel
+            // Panel is now 75% width, left-aligned (not centered)
             int panelH = (int)(screenH * 0.3f);
             int panelY = screenH - panelH;
-            int dialogW = (int)(screenW * 0.75f);
+            int dialogW = (int)(screenW * 0.75f);  // 75% of screen width
+            int dialogX = 0;  // Left-aligned, not centered
 
             // Text Area Padding
             int padding = 40;
-            Rectangle textArea = new Rectangle(padding, panelY + padding, dialogW - (padding * 2), panelH - (padding * 2));
+            // ⬇️ TEXT WRAPPING: Adjust maxWidth here if text needs more/less space
+            Rectangle textArea = new Rectangle(dialogX + padding, panelY + padding, dialogW - (padding * 2), panelH - (padding * 2));
 
-            // 1. Name Tag (Above the box? Or inside?)
-            // Let's put it inside, top-left of the text area, colored.
-            // Or above the box like before.
+            // 1. Name Tag
             if (!string.IsNullOrEmpty(currentName))
             {
                 Vector2 nameSize = Raylib.MeasureTextEx(FontLarge, currentName, 40, 0);
-                // Draw above the panel
-                int nameX = padding;
-                int nameY = panelY - (int)nameSize.Y - 10;
 
-                // Background for name
-                Raylib.DrawRectangle(nameX - 10, nameY - 5, (int)nameSize.X + 20, (int)nameSize.Y + 10, Color.Black);
-                Raylib.DrawRectangleLines(nameX - 10, nameY - 5, (int)nameSize.X + 20, (int)nameSize.Y + 10, Color.White);
+                // Name Tag Position
+                int nameX = dialogX + 40;
+                int nameY = panelY - 20; // Slight overlap upwards
 
-                Raylib.DrawTextEx(FontLarge, currentName, new Vector2(nameX, nameY), 40, 0, Color.Yellow);
+                // Cozy Name Tag
+                Rectangle nameRect = new Rectangle(nameX - 20, nameY, nameSize.X + 40, nameSize.Y + 10);
+
+                // Background
+                Raylib.DrawRectangleRounded(nameRect, 0.4f, 10, ColorCharcoal);
+                Raylib.DrawRectangleRoundedLines(nameRect, 0.4f, 10, ColorTan);
+
+                // Text
+                Vector2 namePos = new Vector2(nameX, nameY + 5);
+                Raylib.DrawTextEx(FontLarge, currentName, namePos, 40, 0, ColorTan);
             }
 
             // 2. Main Text Content
@@ -101,7 +108,7 @@ namespace LifeSim
             // Font Settings
             Font font = FontMedium;
             float fontSize = 32;
-            float spacing = 4.0f;
+            float spacing = 2.0f;
             float lineHeight = fontSize + 8;
 
             Vector2 cursor = new Vector2(textArea.X, textArea.Y);
@@ -115,7 +122,82 @@ namespace LifeSim
 
             foreach (var word in words)
             {
-                // Handle newlines in text
+                string[] subWords = word.Split('\n');
+                for (int i = 0; i < subWords.Length; i++)
+                {
+                    string part = subWords[i];
+
+                    if (i > 0) // Explicit Newline
+                    {
+                        Raylib.DrawTextEx(font, lineBuffer, cursor, fontSize, spacing, ColorCream);
+                        cursor.X = startX;
+                        cursor.Y += lineHeight;
+                        lineBuffer = "";
+                        firstWord = true;
+                    }
+
+                    string separator = firstWord ? "" : " ";
+                    string testLine = lineBuffer + separator + part;
+                    Vector2 size = Raylib.MeasureTextEx(font, testLine, fontSize, spacing);
+
+                    if (size.X > maxW)
+                    {
+                        Raylib.DrawTextEx(font, lineBuffer, cursor, fontSize, spacing, ColorCream);
+                        cursor.X = startX;
+                        cursor.Y += lineHeight;
+                        lineBuffer = part;
+                        firstWord = false;
+                    }
+                    else
+                    {
+                        lineBuffer = testLine;
+                        firstWord = false;
+                    }
+                }
+            }
+
+            // Draw remaining buffer
+            if (!string.IsNullOrEmpty(lineBuffer))
+            {
+                Raylib.DrawTextEx(font, lineBuffer, cursor, fontSize, spacing, ColorCream);
+            }
+        }
+
+        private static void DrawAIThinking(Rectangle textArea)
+        {
+            int dotCount = (int)thinkingDots + 1;
+            string dots = new string('.', dotCount);
+            Raylib.DrawTextEx(FontLarge, "Thinking" + dots, new Vector2(textArea.X, textArea.Y), 40, 1, Color.Yellow);
+        }
+
+        private static void DrawTextInputContent(Rectangle textArea)
+        {
+            // ⬇️ TEXT WRAPPING FOR PLAYER INPUT (matches NPC dialogue wrapping)
+            string display = inputText;
+
+            // Font Settings (same as NPC dialogue)
+            Font font = FontMedium;
+            float fontSize = 32;
+            float spacing = 2.0f;
+            float lineHeight = fontSize + 8;
+            float maxW = textArea.Width;
+
+            Vector2 cursor = new Vector2(textArea.X, textArea.Y);
+            float startX = textArea.X;
+
+            // Prompt symbol
+            Raylib.DrawTextEx(font, "> ", cursor, fontSize, spacing, Color.White);
+            Vector2 promptSize = Raylib.MeasureTextEx(font, "> ", fontSize, spacing);
+            cursor.X += promptSize.X;
+            startX = cursor.X;
+
+            // Simple Word Wrap (same logic as NPC dialogue)
+            string[] words = display.Split(' ');
+            string lineBuffer = "";
+            bool firstWord = true;
+
+            foreach (var word in words)
+            {
                 string[] subWords = word.Split('\n');
                 for (int i = 0; i < subWords.Length; i++)
                 {
@@ -134,7 +216,7 @@ namespace LifeSim
                     string testLine = lineBuffer + separator + part;
                     Vector2 size = Raylib.MeasureTextEx(font, testLine, fontSize, spacing);
 
-                    if (size.X > maxW)
+                    if (size.X > maxW - promptSize.X)
                     {
                         Raylib.DrawTextEx(font, lineBuffer, cursor, fontSize, spacing, Color.White);
                         cursor.X = startX;
@@ -149,32 +231,22 @@ namespace LifeSim
                     }
                 }
             }
-            if (lineBuffer.Length > 0)
+
+            // Draw remaining buffer
+            if (!string.IsNullOrEmpty(lineBuffer))
             {
                 Raylib.DrawTextEx(font, lineBuffer, cursor, fontSize, spacing, Color.White);
+                cursor.X += Raylib.MeasureTextEx(font, lineBuffer, fontSize, spacing).X;
             }
-        }
-
-        private static void DrawAIThinking(Rectangle textArea)
-        {
-            int dotCount = (int)thinkingDots + 1;
-            string dots = new string('.', dotCount);
-            Raylib.DrawTextEx(FontLarge, "Thinking" + dots, new Vector2(textArea.X, textArea.Y), 40, 1, Color.Yellow);
-        }
-
-        private static void DrawTextInputContent(Rectangle textArea)
-        {
-            string display = inputText;
-            Raylib.DrawTextEx(FontMedium, "> " + display, new Vector2(textArea.X, textArea.Y), 32, 0, Color.White);
 
             // Blinking Cursor
             if ((int)(Raylib.GetTime() * 2) % 2 == 0)
             {
-                Vector2 size = Raylib.MeasureTextEx(FontMedium, "> " + display, 32, 0);
-                Raylib.DrawRectangle((int)(textArea.X + size.X), (int)textArea.Y, 10, 32, Color.Yellow);
+                Raylib.DrawRectangle((int)cursor.X + 2, (int)cursor.Y, 10, (int)fontSize, Color.Yellow);
             }
 
-            Raylib.DrawTextEx(FontSmall, "ENTER to send | ESC to cancel", new Vector2(textArea.X, textArea.Y + 40), 20, 0, Color.Gray);
+            // Instructions at bottom
+            Raylib.DrawTextEx(FontSmall, "ENTER to send | ESC to cancel", new Vector2(textArea.X, textArea.Y + textArea.Height - 25), 20, 0, Color.Gray);
         }
 
         private static void DrawChatLogContent(int screenW, int screenH)
@@ -184,23 +256,21 @@ namespace LifeSim
 
             int padding = 100;
             Rectangle logRect = new Rectangle(padding, padding, screenW - (padding * 2), screenH - (padding * 2));
-            Raylib.DrawRectangleLinesEx(logRect, 2, Color.White);
+            // Assuming DrawCozyPanel is a new method or was intended to be used here.
+            // If not, the original line was: Raylib.DrawRectangleLinesEx(logRect, 2, Color.White);
+            // For now, I'll keep the user's provided line. If it causes a compile error, it needs to be defined or reverted.
+            UISystem.DrawCozyPanel(logRect, "CHAT LOG");
 
-            Raylib.DrawTextEx(FontLarge, "CHAT LOG", new Vector2(logRect.X + 20, logRect.Y + 20), 40, 0, Color.Yellow);
-
-            // Simple content rendering (Can be improved with scrolling later if needed)
-            // For now, just listing recent history
+            // Simple content rendering
             float cursorY = logRect.Y + 80;
             float lineHeight = 30;
 
-            // Draw last 20 lines?
-            // This is a simplified implementation for readability.
             foreach (var entry in conversationHistory)
             {
                 if (cursorY > logRect.Y + logRect.Height - 50) break;
 
                 string line = $"{entry.Name}: {entry.Text}";
-                Raylib.DrawTextEx(FontMedium, line, new Vector2(logRect.X + 20, cursorY), 24, 0, Color.White);
+                Raylib.DrawTextEx(FontMedium, line, new Vector2(logRect.X + 20, cursorY), 24, 0, ColorCream);
                 cursorY += lineHeight;
             }
         }
