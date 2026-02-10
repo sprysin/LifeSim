@@ -100,18 +100,18 @@ namespace LifeSim
             MasterTileset = Raylib.LoadTexture(tilesetPath);
 
             // Define Scenes
-            // Debug Room (formerly Living Room)
+            // Debug Room
             SceneData debugRoom = new SceneData("Debug Room", "Tilesets/output.png", "", new Vector2(2, 2), 1); // Spawn (2,2)
             debugRoom.NPCs.Add(new NPCSpawnData(1, 3, "Testern", "Hello! I am Testern. Welcome to the Debug Room!", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"))); // Testern (1,3)
 
             // Kitchen
             SceneData kitchen = new SceneData("Kitchen", "Tilesets/kitchen.png", "Tilesets/interaction Layer_Kitchen.png", new Vector2(4, 5), 1);
             // Add Boogie
-            kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "Leave me be.", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
+            kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             // Living Room
             SceneData livingRoom = new SceneData("Living Room", "Tilesets/Living_room.png", "Tilesets/interaction Layer_Living_room.png", new Vector2(4, 5), 1);
-            livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "Leave me be.", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
+            livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             Scenes.Add(debugRoom);
             Scenes.Add(kitchen);

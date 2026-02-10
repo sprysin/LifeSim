@@ -8,7 +8,12 @@ namespace LifeSim
         public static bool IsOpen { get; private set; } = false;
 
         private static int selection = 0;
-        private static string[] options = { "Coming Soon#1", "Coming Soon#2" };
+        private static string[] options = { "20 Questions", "Coming Soon" };
+
+        // Error message display
+        private static string errorMessage = "";
+        private static float errorTimer = 0f;
+        private const float ErrorDisplayTime = 2.0f;
 
         // UI Layout
         private const int PanelW = 120;
@@ -26,6 +31,8 @@ namespace LifeSim
         {
             IsOpen = true;
             selection = 0;
+            errorMessage = "";
+            errorTimer = 0f;
         }
 
         public static void Close()
@@ -36,6 +43,13 @@ namespace LifeSim
         public static void Update()
         {
             if (!IsOpen) return;
+
+            // Error timer countdown
+            if (errorTimer > 0)
+            {
+                errorTimer -= Raylib.GetFrameTime();
+                if (errorTimer <= 0) errorMessage = "";
+            }
 
             // Navigation
             if (Raylib.IsKeyPressed(KeyboardKey.Down))
@@ -49,10 +63,25 @@ namespace LifeSim
                 if (selection < 0) selection = options.Length - 1;
             }
 
-            // Selection (Currently does nothing)
+            // Selection
             if (Raylib.IsKeyPressed(KeyboardKey.X))
             {
-                // TODO: Implement TV features
+                if (selection == 0) // 20 Questions
+                {
+                    if (NPC.ActiveFollower != null)
+                    {
+                        // Start 20 Questions with the following NPC
+                        TwentyQuestionsUI.Reset();
+                        MinigameManager.StartMinigame(MinigameType.TwentyQuestions, NPC.ActiveFollower);
+                        Close();
+                        return;
+                    }
+                    else
+                    {
+                        errorMessage = "Someone must follow you to play";
+                        errorTimer = ErrorDisplayTime;
+                    }
+                }
             }
 
             // Exit
@@ -117,6 +146,14 @@ namespace LifeSim
                 {
                     Raylib.DrawTextEx(UISystem.FontSmall, "  " + text, new Vector2(PanelX + 15, startY + (i * spacing)), 12, 0, textColor);
                 }
+            }
+            // Draw error message if present
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                Vector2 errSize = Raylib.MeasureTextEx(UISystem.FontSmall, errorMessage, 10, 0);
+                float errX = PanelX + (PanelW - errSize.X) / 2;
+                float errY = PanelY + PanelH - 20;
+                Raylib.DrawTextEx(UISystem.FontSmall, errorMessage, new Vector2(errX, errY), 10, 0, Color.Red);
             }
 
             Raylib.EndTextureMode();

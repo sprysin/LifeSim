@@ -74,28 +74,28 @@ namespace LifeSim
             int x = gridX * tileSize + (tileSize / 2);
             int y = (gridY * tileSize) - 40; // Slightly higher
 
-            string text = "X";
+            string text = "...";
             int fontSize = 40;
 
             if (bubbleTexture.Id != 0)
             {
                 // Draw Custom Bubble
                 // Center texture
-                float bubbleScale = 4.5f;
+                float bubbleScale = 4f;
                 float texX = x - ((bubbleTexture.Width * bubbleScale) / 2.0f);
                 float texY = y - ((bubbleTexture.Height * bubbleScale) / 2.0f);
 
                 Raylib.DrawTextureEx(bubbleTexture, new Vector2(texX, texY), 0.0f, bubbleScale, Color.White);
 
                 // Draw Text centered on bubble
-                Vector2 textSize = Raylib.MeasureTextEx(FontLarge, text, fontSize, 1.0f);
+                Vector2 textSize = Raylib.MeasureTextEx(FontTitle, text, fontSize / 2, 1.0f);
 
 
                 // Adjust text position relative to bubble layout (assuming centered)
-                int textX = x - (int)(textSize.X / 2);
-                int textY = y - (int)(textSize.Y / 2);
+                int textX = x - (int)(textSize.X / 2.4f);
+                int textY = y - (int)(textSize.Y / 1f);
 
-                Raylib.DrawTextEx(FontLarge, text, new Vector2(textX, textY), fontSize, 1.0f, Color.Black);
+                Raylib.DrawTextEx(FontTitle, text, new Vector2(textX, textY), fontSize / 2, 1.0f, Color.DarkGray);
 
             }
             else

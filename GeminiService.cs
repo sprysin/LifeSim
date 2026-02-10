@@ -237,6 +237,86 @@ What mood should the NPC react with? (respond with only the mood name)";
                 return "no_change";
             }
         }
+        public static async Task<string> SendRawPromptAsync(string systemPrompt, string userPrompt, int maxTokens = 150)
+        {
+            return await SendRawPromptAsync(systemPrompt, userPrompt, maxTokens, 0.9f, 0.95f);
+        }
+
+        public static async Task<string> SendRawPromptAsync(string systemPrompt, string userPrompt, int maxTokens, float temperature, float topP)
+        {
+            if (!IsInitialized)
+            {
+                return "[AI Offline - No API Key]";
+            }
+
+            try
+            {
+                var requestBody = new
+                {
+                    system_instruction = new
+                    {
+                        parts = new[] { new { text = systemPrompt } }
+                    },
+                    contents = new[]
+                    {
+                        new
+                        {
+                            role = "user",
+                            parts = new[] { new { text = userPrompt } }
+                        }
+                    },
+                    generationConfig = new
+                    {
+                        temperature = temperature,
+                        maxOutputTokens = maxTokens,
+                        topP = topP
+                    }
+                };
+
+                string jsonBody = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+                string url = $"{API_URL}?key={apiKey}";
+                HttpResponseMessage response = await httpClient.PostAsync(url, content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[GeminiService] Raw Prompt Error: {response.StatusCode} - {errorBody}");
+                    return "[API Error]";
+                }
+
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                using (JsonDocument doc = JsonDocument.Parse(responseBody))
+                {
+                    JsonElement root = doc.RootElement;
+
+                    if (root.TryGetProperty("candidates", out JsonElement candidates) &&
+                        candidates.GetArrayLength() > 0)
+                    {
+                        var firstCandidate = candidates[0];
+                        if (firstCandidate.TryGetProperty("content", out JsonElement contentElem) &&
+                            contentElem.TryGetProperty("parts", out JsonElement parts) &&
+                            parts.GetArrayLength() > 0)
+                        {
+                            var firstPart = parts[0];
+                            if (firstPart.TryGetProperty("text", out JsonElement textElem))
+                            {
+                                return textElem.GetString() ?? "...";
+                            }
+                        }
+                    }
+                }
+
+                return "...";
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[GeminiService] Raw Prompt Exception: {e.Message}");
+                return "[Connection Error]";
+            }
+        }
     }
 
     public class ChatMessage

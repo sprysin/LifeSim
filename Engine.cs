@@ -13,7 +13,8 @@ namespace LifeSim
             Exploring,
             Dialogue,
             Terminal,
-            TV
+            TV,
+            Minigame20Questions
         }
 
         public static GameState CurrentState = GameState.Menu;
@@ -169,6 +170,22 @@ namespace LifeSim
                     TVSystem.Update();
                     if (!TVSystem.IsOpen)
                     {
+                        // Check if a minigame was started from the TV menu
+                        if (CurrentState != GameState.Minigame20Questions)
+                        {
+                            CurrentState = GameState.Exploring;
+                        }
+                    }
+                }
+                else if (CurrentState == GameState.Minigame20Questions)
+                {
+                    MinigameManager.Update();
+                    if (MinigameManager.ActiveMinigame != null)
+                    {
+                        TwentyQuestionsUI.HandleInput(MinigameManager.ActiveMinigame);
+                    }
+                    if (!MinigameManager.IsActive)
+                    {
                         CurrentState = GameState.Exploring;
                     }
                 }
@@ -298,6 +315,10 @@ namespace LifeSim
                     else if (CurrentState == GameState.TV)
                     {
                         TVSystem.Draw();
+                    }
+                    else if (CurrentState == GameState.Minigame20Questions)
+                    {
+                        MinigameManager.Draw();
                     }
                 }
 

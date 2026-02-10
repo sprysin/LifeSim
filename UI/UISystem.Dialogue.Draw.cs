@@ -32,7 +32,7 @@ namespace LifeSim
         private const float MoodShakeIntensity = 5.0f;
         private const float MoodShakeSpeed = 30.0f;
 
-        private static void DrawGrid(int x, int y, int w, int h, float offset, Color gridColor)
+        public static void DrawGrid(int x, int y, int w, int h, float offset, Color gridColor)
         {
             // Vertical lines (scrolling)
             for (int i = -1; i <= w / GridSize + 1; i++)

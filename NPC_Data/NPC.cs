@@ -23,7 +23,6 @@ namespace LifeSim
         // Animation State
         private enum Direction { Down = 0, Left = 1, Right = 2, Up = 3 }
         private Direction currentDir = Direction.Down;
-        private bool isMoving = false;
 
         // Sprite Sheet Details
         private const int GapX = 1;
@@ -216,7 +215,6 @@ namespace LifeSim
 
                 // Step 4: Add AI response to history
                 Conversation.AddModelMessage(response);
-
                 return response;
             }
             catch (Exception e)
@@ -224,171 +222,158 @@ namespace LifeSim
                 Console.WriteLine($"[NPC] AI Error: {e.Message}");
                 return "[Error getting response]";
             }
-            finally
-            {
-                IsWaitingForAI = false;
-            }
+            finally { IsWaitingForAI = false; }
         }
 
         public void Update(float dt, Player? player = null)
         {
-            // Follow Logic
-            if (IsFollowing && player != null)
-            {
-                currentState = AIState.Walking; // Force walking anim
-
-                // improved follow logic
-                var (targetX, targetY) = player.GetBehindPosition();
-                int dist = Math.Abs(targetX - GridX) + Math.Abs(targetY - GridY);
-
-                if (dist > 0)
-                {
-                    // Move towards target
-                    int dx = targetX - GridX;
-                    int dy = targetY - GridY;
-
-                    // Pace movement
-                    walkStepTimer -= dt;
-                    if (walkStepTimer <= 0)
-                    {
-                        walkStepTimer = WalkStepInterval;
-
-                        int stepX = 0;
-                        int stepY = 0;
-
-                        if (Math.Abs(dx) > Math.Abs(dy))
-                        {
-                            // Move X
-                            stepX = Math.Sign(dx);
-                            currentDir = stepX > 0 ? Direction.Right : Direction.Left;
-                        }
-                        else
-                        {
-                            // Move Y
-                            stepY = Math.Sign(dy);
-                            currentDir = stepY > 0 ? Direction.Down : Direction.Up;
-                        }
-
-                        int nextX = GridX + stepX;
-                        int nextY = GridY + stepY;
-
-                        // Allow walking into target (since it's behind player, not player itself)
-                        if (TileSystem.IsWalkable(nextX, nextY) && !(nextX == player.GridX && nextY == player.GridY))
-                        {
-                            GridX = nextX;
-                            GridY = nextY;
-                        }
-                    }
-                }
-                else
-                {
-                    // Close enough, face player
-                    if (player.GridX > GridX) currentDir = Direction.Right;
-                    if (player.GridX < GridX) currentDir = Direction.Left;
-                    if (player.GridY > GridY) currentDir = Direction.Down;
-                    if (player.GridY < GridY) currentDir = Direction.Up;
-
-                    currentState = AIState.Idle;
-                    currentFrame = 0;
-                }
-
-                // Animation Logic for Follow
-                if (currentState == AIState.Walking)
-                {
-                    frameTimer += dt;
-                    if (frameTimer >= FrameSpeed)
-                    {
-                        currentFrame++;
-                        if (currentFrame >= 4) currentFrame = 0;
-                        frameTimer = 0;
-                    }
-                }
-                return; // Skip normal wander logic if following
-            }
-
-
             stateTimer -= dt;
 
+            // Follow Logic overrides normal behavior
+            if (IsFollowing && player != null)
+            {
+                HandleFollowBehavior(dt, player);
+                return;
+            }
+
+            // Normal AI State Machine
             if (currentState == AIState.Idle)
             {
-                // Transition to Walking
                 if (stateTimer <= 0)
                 {
-                    currentState = AIState.Walking;
-
-                    // Pick direction
-                    int dir = rng.Next(0, 4); // 0-3
-                    if (dir == 0) currentDir = Direction.Up;
-                    else if (dir == 1) currentDir = Direction.Down;
-                    else if (dir == 2) currentDir = Direction.Left;
-                    else if (dir == 3) currentDir = Direction.Right;
-
-                    // Pick distance
-                    tilesToWalk = rng.Next(1, 6); // 1 to 5 tiles
-
-                    // We reuse walkStepTimer to pace the individual steps
-                    walkStepTimer = 0f;
+                    StartWander();
                 }
             }
             else if (currentState == AIState.Walking)
             {
-                isMoving = true;
-                walkStepTimer -= dt;
+                UpdateMovement(dt);
+            }
 
+            UpdateAnimation(dt);
+        }
+
+        private void HandleFollowBehavior(float dt, Player player)
+        {
+            currentState = AIState.Walking; // Always animate walking when following
+
+            var (targetX, targetY) = player.GetBehindPosition();
+            int dist = Math.Abs(targetX - GridX) + Math.Abs(targetY - GridY);
+
+            if (dist > 0)
+            {
+                walkStepTimer -= dt;
                 if (walkStepTimer <= 0)
                 {
                     walkStepTimer = WalkStepInterval;
+                    int dx = targetX - GridX;
+                    int dy = targetY - GridY;
 
-                    // Try to move 1 tile
-                    int dx = 0;
-                    int dy = 0;
-
-                    switch (currentDir)
+                    // Prioritize larger distance axis
+                    int stepX = 0, stepY = 0;
+                    if (Math.Abs(dx) > Math.Abs(dy))
                     {
-                        case Direction.Up: dy = -1; break;
-                        case Direction.Down: dy = 1; break;
-                        case Direction.Left: dx = -1; break;
-                        case Direction.Right: dx = 1; break;
-                    }
-
-                    int newX = GridX + dx;
-                    int newY = GridY + dy;
-
-                    if (TileSystem.IsWalkable(newX, newY))
-                    {
-                        GridX = newX;
-                        GridY = newY;
-                        tilesToWalk--;
-
-                        if (tilesToWalk <= 0)
-                        {
-                            // Done walking
-                            SwitchToIdle();
-                        }
+                        stepX = Math.Sign(dx);
+                        currentDir = stepX > 0 ? Direction.Right : Direction.Left;
                     }
                     else
                     {
-                        // Blocked
-                        SwitchToIdle();
+                        stepY = Math.Sign(dy);
+                        currentDir = stepY > 0 ? Direction.Down : Direction.Up;
+                    }
+
+                    int nextX = GridX + stepX;
+                    int nextY = GridY + stepY;
+
+                    // Check bounds and avoid stepping on player
+                    if (TileSystem.IsWalkable(nextX, nextY) && !(nextX == player.GridX && nextY == player.GridY))
+                    {
+                        GridX = nextX;
+                        GridY = nextY;
                     }
                 }
             }
+            else
+            {
+                // Face Player
+                if (player.GridX > GridX) currentDir = Direction.Right;
+                else if (player.GridX < GridX) currentDir = Direction.Left;
+                else if (player.GridY > GridY) currentDir = Direction.Down;
+                else if (player.GridY < GridY) currentDir = Direction.Up;
 
-            // Animation Logic
-            // Only animate if we are in Walking state (and thus "isMoving" concept applies)
+                // Idle animation
+                currentState = AIState.Idle; // Visual only, logically obscure
+                currentFrame = 0;
+            }
+
+            // Following uses special animation logic that ignores stateTimer
+            if (currentState == AIState.Walking) UpdateAnimation(dt);
+        }
+
+        private void StartWander()
+        {
+            currentState = AIState.Walking;
+
+            int dir = rng.Next(0, 4);
+            currentDir = (Direction)dir;
+            tilesToWalk = rng.Next(1, 6);
+            walkStepTimer = 0f; // Start immediately
+        }
+
+        private void UpdateMovement(float dt)
+        {
+            walkStepTimer -= dt;
+            if (walkStepTimer <= 0)
+            {
+                walkStepTimer = WalkStepInterval;
+
+                int dx = 0, dy = 0;
+                switch (currentDir)
+                {
+                    case Direction.Up: dy = -1; break;
+                    case Direction.Down: dy = 1; break;
+                    case Direction.Left: dx = -1; break;
+                    case Direction.Right: dx = 1; break;
+                }
+
+                if (AttemptStep(dx, dy))
+                {
+                    tilesToWalk--;
+                    if (tilesToWalk <= 0) SwitchToIdle();
+                }
+                else
+                {
+                    SwitchToIdle(); // Blocked
+                }
+            }
+        }
+
+        private bool AttemptStep(int dx, int dy)
+        {
+            int newX = GridX + dx;
+            int newY = GridY + dy;
+
+            if (TileSystem.IsWalkable(newX, newY))
+            {
+                GridX = newX;
+                GridY = newY;
+                return true;
+            }
+            return false;
+        }
+
+        private void UpdateAnimation(float dt)
+        {
             if (currentState == AIState.Walking)
             {
                 frameTimer += dt;
                 if (frameTimer >= FrameSpeed)
                 {
-                    currentFrame++;
-                    if (currentFrame >= 4) currentFrame = 0;
+                    currentFrame = (currentFrame + 1) % 4;
                     frameTimer = 0;
                 }
             }
             else
             {
-                isMoving = false;
                 currentFrame = 0;
                 frameTimer = 0;
             }
@@ -397,7 +382,6 @@ namespace LifeSim
         private void SwitchToIdle()
         {
             currentState = AIState.Idle;
-            isMoving = false;
             // Wait 2-5 seconds
             stateTimer = (float)rng.NextDouble() * 3.0f + 2.0f;
             currentFrame = 0;
