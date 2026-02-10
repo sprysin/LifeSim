@@ -1,5 +1,6 @@
 using Raylib_cs;
 using System.Numerics;
+using System.Text.Json;
 
 namespace LifeSim
 {
@@ -190,15 +191,46 @@ namespace LifeSim
                 // Step 2: Add user message to history
                 Conversation.AddUserMessage(userMessage);
 
-                // Step 3: Get AI response with the (possibly new) mood
+                // Step 3: Retrieve Relevant Memories
+                List<string> memories = new List<string>();
+
+                // Strategy A: Recent Memories (Last 3)
+                var recentEntries = DiaryEntries.OrderByDescending(e => e.Created).Take(3).ToList();
+                foreach (var entry in recentEntries)
+                {
+                    memories.Add($"[{entry.Created.ToShortDateString()}] {entry.Summary}: {entry.Content}");
+                }
+
+                // Strategy B: Simple Keyword Matching (very basic)
+                // If user mentions specific words, look for them in older entries
+                string[] keywords = userMessage.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var entry in DiaryEntries.Except(recentEntries))
+                {
+                    int matches = 0;
+                    foreach (var word in keywords)
+                    {
+                        if (word.Length > 3 && (entry.Content.Contains(word, StringComparison.OrdinalIgnoreCase) || entry.Summary.Contains(word, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            matches++;
+                        }
+                    }
+                    if (matches > 0)
+                    {
+                        memories.Add($"[RECALL] [{entry.Created.ToShortDateString()}] {entry.Summary}: {entry.Content}");
+                        if (memories.Count >= 6) break; // Limit total context
+                    }
+                }
+
+                // Step 4: Get AI response with the (possibly new) mood AND memories
                 string response = await GeminiService.GenerateResponseAsync(
                     CharacterData,
                     CurrentMood,
                     Conversation.GetHistory(),
-                    userMessage
+                    userMessage,
+                    memories
                 );
 
-                // Step 4: Add AI response to history
+                // Step 5: Add AI response to history
                 Conversation.AddModelMessage(response);
                 return response;
             }
@@ -228,6 +260,91 @@ namespace LifeSim
 
         public Texture2D PortraitTexture;
         private string loadedPortraitPath = "";
+
+        // --- DIARY SYSTEM ---
+        public List<DiaryEntry> DiaryEntries = new List<DiaryEntry>();
+        private int messageCounter = 0;
+        private const int DiaryTriggerThreshold = 15;
+
+        public void LoadDiary()
+        {
+            string path = Path.Combine("NPC_Data", "Memories", $"{Name}_diary.json");
+            if (File.Exists(path))
+            {
+                try
+                {
+                    string json = File.ReadAllText(path);
+                    var loadedEntries = JsonSerializer.Deserialize<List<DiaryEntry>>(json);
+                    if (loadedEntries != null)
+                    {
+                        DiaryEntries = loadedEntries;
+                        Console.WriteLine($"[NPC] Loaded {DiaryEntries.Count} diary entries for {Name}.");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[NPC] Error loading diary for {Name}: {e.Message}");
+                }
+            }
+        }
+
+        public void SaveDiary()
+        {
+            string dir = Path.Combine("NPC_Data", "Memories");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            string path = Path.Combine(dir, $"{Name}_diary.json");
+            try
+            {
+                string json = JsonSerializer.Serialize(DiaryEntries, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(path, json);
+                Console.WriteLine($"[NPC] Saved diary for {Name}.");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[NPC] Error saving diary for {Name}: {e.Message}");
+            }
+        }
+
+        public async Task CheckDiaryTrigger()
+        {
+            messageCounter++;
+            if (messageCounter >= DiaryTriggerThreshold)
+            {
+                Console.WriteLine($"[NPC] Diary trigger reached ({messageCounter} msgs). Generating summary...");
+                messageCounter = 0; // Reset
+                await GenerateDiaryEntry();
+            }
+        }
+
+        public async Task GenerateDiaryEntry(int historyCount = 15)
+        {
+            if (Conversation == null) return;
+
+            // Get recent history
+            var history = Conversation.GetHistory();
+            int count = Math.Min(history.Count, historyCount);
+            if (count == 0) return;
+
+            var recentMessages = history.Skip(history.Count - count).ToList();
+
+            // Generate Summary via Gemini
+            var (summary, content) = await GeminiService.GenerateDiarySummaryAsync(Name, recentMessages);
+
+            if (!string.IsNullOrEmpty(content))
+            {
+                var entry = new DiaryEntry
+                {
+                    Created = DateTime.Now,
+                    Summary = summary,
+                    Content = content
+                };
+
+                DiaryEntries.Add(entry);
+                SaveDiary();
+                Console.WriteLine($"[NPC] New Diary Entry Created: {summary}");
+            }
+        }
 
         public void DrawStatic(int centerX, int centerY, float scale)
         {

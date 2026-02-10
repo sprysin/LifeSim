@@ -7,83 +7,130 @@ namespace LifeSim
     public static partial class UISystem
     {
         // New Ribbon Button Style
-        // isLeft: true if button comes from left side, false if from right
+        // Inside UISystem.RibbonButtons.cs
+
         public static bool DrawRibbonButton(Rectangle rect, string text, bool isLeft)
         {
             float mouseX = Raylib.GetMouseX();
             float mouseY = Raylib.GetMouseY();
             bool isHovered = Raylib.CheckCollisionPointRec(new Vector2(mouseX, mouseY), rect);
 
-            // Animation: Slide out slightly on hover
-            // BOTH ribbons slide AWAY from their screen edge (toward the edge, not toward center)
-            // This makes the tips appear to extend toward the center
-            float xOffset = isHovered ? 10 : 0;
+            // --- Configuration ---
+            float xOffset = isHovered ? 15 : 0;
 
-            // Draw Main Body (Rectangle)
+            Color bodyColor = new Color(0, 0, 0, 220);
+            Color glowColor = new Color(139, 69, 19, 255);
+            Color brightGlow = new Color(160, 90, 40, 255);
+
             Rectangle drawRect;
-
             if (isLeft)
                 drawRect = new Rectangle(rect.X + xOffset, rect.Y, rect.Width, rect.Height);
             else
                 drawRect = new Rectangle(rect.X - xOffset, rect.Y, rect.Width, rect.Height);
 
-            Color bodyColor = new Color(0, 0, 0, 200); // Transparent Black
-            Color glowColor = new Color(139, 69, 19, 255); // SaddleBrown for glow
+            // --- 1. Draw Background Gradient ---
+            if (isHovered)
+            {
+                Color start = isLeft ? glowColor : bodyColor;
+                Color end = isLeft ? bodyColor : glowColor;
+                Raylib.DrawRectangleGradientH((int)drawRect.X, (int)drawRect.Y, (int)drawRect.Width, (int)drawRect.Height, start, end);
+            }
+            else
+            {
+                Raylib.DrawRectangleRec(drawRect, bodyColor);
+            }
 
-            // Draw Diamond Tip
+            // --- 2. Halftone Texture (Hover Only) ---
+            if (isHovered)
+            {
+                int dotSpacing = 7;
+                int dotSize = 2;
+                for (float x = drawRect.X; x < drawRect.X + drawRect.Width; x += dotSpacing)
+                {
+                    for (float y = drawRect.Y; y < drawRect.Y + drawRect.Height; y += dotSpacing)
+                    {
+                        float progress = isLeft ? 1.0f - ((x - drawRect.X) / drawRect.Width) : (x - drawRect.X) / drawRect.Width;
+                        int alpha = (int)(100 * progress);
+                        if (alpha > 0) Raylib.DrawCircle((int)x, (int)y, dotSize, new Color(255, 255, 255, alpha));
+                    }
+                }
+            }
+
+            // --- 3. Draw The Triangle Tip ---
             Vector2 v1, v2, v3;
-            int tipSize = (int)(rect.Height / 2);
+            int tipSize = (int)(rect.Height / 2); // Length of the triangle point
+
+            // We also need a specific center point for the diamond
+            Vector2 diamondCenter;
+            float diamondOffset = tipSize * 0.6f; // How far INSIDE the tip the diamond sits
 
             if (isLeft)
             {
                 // Tip points Right
-                // Winding: Top -> Bottom -> Tip (Clockwise)
-                v1 = new Vector2(drawRect.X + drawRect.Width, drawRect.Y);
-                v2 = new Vector2(drawRect.X + drawRect.Width, drawRect.Y + drawRect.Height);
-                v3 = new Vector2((drawRect.X + drawRect.Width + tipSize), drawRect.Y + (drawRect.Height / 2));
+                v1 = new Vector2(drawRect.X + drawRect.Width, drawRect.Y); // Top Right
+                v2 = new Vector2(drawRect.X + drawRect.Width, drawRect.Y + drawRect.Height); // Bottom Right
+                v3 = new Vector2((drawRect.X + drawRect.Width + tipSize), drawRect.Y + (drawRect.Height / 2)); // The Point
+
+                // Move diamond LEFT (negative X) from the tip (v3) so it sits inside the shape
+                diamondCenter = new Vector2(v3.X - diamondOffset, v3.Y);
             }
             else
             {
+                // Tip points Left
                 float baseX = drawRect.X;
                 float midY = drawRect.Y + drawRect.Height / 2f;
 
-                v1 = new Vector2(baseX, drawRect.Y);             // 1. Top Left
-                v2 = new Vector2(baseX - tipSize, midY);         // 2. Tip (This was v3)
-                v3 = new Vector2(baseX, drawRect.Y + drawRect.Height); // 3. Bottom Left (This was v2)
+                v1 = new Vector2(baseX, drawRect.Y);
+                v2 = new Vector2(baseX - tipSize, midY); // The Point
+                v3 = new Vector2(baseX, drawRect.Y + drawRect.Height);
+
+                // Move diamond RIGHT (positive X) from the tip (v2) so it sits inside the shape
+                diamondCenter = new Vector2(v2.X + diamondOffset, v2.Y);
             }
 
+            // Draw the triangular connector
+            // Note: We use the same color as the body/gradient end so it blends seamlessly
+            Color tipColor = isHovered ? (isLeft ? glowColor : glowColor) : bodyColor;
+            Raylib.DrawTriangle(v1, v2, v3, tipColor);
 
+            // --- 4. Draw the "Diamond Divot" ---
+            // User requested "Much Larger" and "Inside". 
+            // We use Color.Black to make it look like a hole/cutout, or brightGlow for a gem. 
+            // Based on reference, let's use a Dark color to simulate a "hole" or "socket".
+            float diamondSize = 18.0f; // Increased size (was approx 12 implicitly)
+
+            // Draw the Diamond
+            // 4 sides, 0 rotation = Diamond shape in Raylib
+            Raylib.DrawPoly(diamondCenter, 4, diamondSize, 0, Color.Black);
+
+            // Optional: Add a smaller colored "Gem" inside the black hole if hovered
             if (isHovered)
             {
-                // Simple outline logic for triangle is hard, just fill generic glow color
-                Raylib.DrawTriangle(v1, v2, v3, glowColor);
-            }
-            Raylib.DrawTriangle(v1, v2, v3, bodyColor);
-
-            if (isHovered)
-            {
-                // Draw Glow/Border
-                Raylib.DrawRectangleRec(new Rectangle(drawRect.X - 2, drawRect.Y - 2, drawRect.Width + 4, drawRect.Height + 4), glowColor);
+                Raylib.DrawPoly(diamondCenter, 4, diamondSize * 0.6f, 0, brightGlow);
             }
 
-            Raylib.DrawRectangleRec(drawRect, bodyColor);
+            // --- 5. Text & Outline ---
+            Raylib.DrawRectangleLinesEx(drawRect, 2, isHovered ? brightGlow : Color.Black);
 
-            // Draw Text
-            // FontMedium is size 32. Button height might be 40-50.
-            int fontSize = 24;
+            // Also draw outline for the triangle so the border is continuous
+            // (This is a simple approximation, drawing lines between vertices)
+            Color outlineColor = isHovered ? brightGlow : Color.Black;
+            Raylib.DrawLineEx(v1, v3, 2, outlineColor);
+            Raylib.DrawLineEx(v3, v2, 2, outlineColor);
+            // Note: We don't draw v1-v2 line because that's where it connects to the rect
+
+            int fontSize = 28;
             Vector2 textSize = Raylib.MeasureTextEx(FontMedium, text, fontSize, 1);
-
-            // Center text in rect
             Vector2 textPos = new Vector2(
                 drawRect.X + (drawRect.Width - textSize.X) / 2,
                 drawRect.Y + (drawRect.Height - textSize.Y) / 2
             );
 
+            Raylib.DrawTextEx(FontMedium, text, new Vector2(textPos.X + 2, textPos.Y + 2), fontSize, 1, Color.Black);
             Raylib.DrawTextEx(FontMedium, text, textPos, fontSize, 1, Color.White);
 
             return isHovered && Raylib.IsMouseButtonPressed(MouseButton.Left);
         }
-
 
         // Draw Action Buttons
         private static void DrawActionButtons()
@@ -152,6 +199,7 @@ namespace LifeSim
                 if (DrawRibbonButton(diaryBtn, "Diary", false))
                 {
                     DiarySystem.Open();
+                    Engine.CurrentState = Engine.GameState.Diary;
                 }
             }
         }

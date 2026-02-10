@@ -297,7 +297,18 @@ namespace LifeSim
                 editingSelection = 1;
             }
 
-            Raylib.DrawTextEx(UISystem.FontSmall, "Press Z to Return", new Vector2(contentX, contentY + (btnH + 20) * 2 + 10), 16, 1, UISystem.ColorTan);
+            // 3. Force Memory (Debug)
+            string memText = "Force Memory (Last 2)";
+            bool memSelected = (editingSelection == 2);
+            Rectangle memRect = new Rectangle(contentX, contentY + (btnH + 20) * 2, panelW - 60, btnH);
+            if (UISystem.DrawCozyButton(memRect, memText, memSelected))
+            {
+                // Fire and forget (async)
+                _ = selectedNPC.GenerateDiaryEntry(2);
+                editingSelection = 2;
+            }
+
+            Raylib.DrawTextEx(UISystem.FontSmall, "Press Z to Return", new Vector2(contentX, contentY + (btnH + 20) * 3 + 10), 16, 1, UISystem.ColorTan);
         }
     }
 }

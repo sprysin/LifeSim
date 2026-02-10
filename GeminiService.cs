@@ -33,7 +33,8 @@ namespace LifeSim
             CharacterData character,
             string mood,
             List<ChatMessage> chatHistory,
-            string userMessage)
+            string userMessage,
+            List<string> memories)
         {
             if (!IsInitialized)
             {
@@ -44,6 +45,17 @@ namespace LifeSim
             {
                 // Build system instruction from character data
                 string systemPrompt = CharacterLoader.BuildSystemPrompt(character, mood);
+
+                // Inject Memories if available
+                if (memories != null && memories.Count > 0)
+                {
+                    systemPrompt += "\n\n[RELEVANT MEMORIES (DIARY ENTRIES)]\n";
+                    systemPrompt += "The following are past events you have recorded in your diary. Use them IF RELEVANT to the conversation:\n";
+                    foreach (var mem in memories)
+                    {
+                        systemPrompt += $"- {mem}\n";
+                    }
+                }
 
                 // Build contents array with chat history
                 var contents = new List<object>();
@@ -315,6 +327,66 @@ What mood should the NPC react with? (respond with only the mood name)";
             {
                 Console.WriteLine($"[GeminiService] Raw Prompt Exception: {e.Message}");
                 return "[Connection Error]";
+            }
+        }
+
+        public static async Task<(string Summary, string Content)> GenerateDiarySummaryAsync(string npcName, List<ChatMessage> recentHistory)
+        {
+            if (!IsInitialized) return ("System", "AI Offline. Cannot generate diary.");
+
+            try
+            {
+                // Construct parameters
+                string historyText = "";
+                foreach (var msg in recentHistory)
+                {
+                    historyText += $"{msg.Role}: {msg.Text}\n";
+                }
+
+                string systemPrompt = $@"You are writing a diary entry for yourself, you are '{npcName}'.
+                    Task: Summarize the following conversation into a single diary entry written in the first person ('I').
+                    1. Create a short title for the entry (e.g., 'Met a new friend', 'Talked about cats').
+                    2. Write the diary content (2-5 sentences max) capturing the key points and your feelings.
+                    3. Output format must be strictly JSON: {{ ""title"": ""..."", ""content"": ""..."" }}";
+
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("Conversation History:");
+                sb.AppendLine(historyText);
+                string userPrompt = sb.ToString();
+
+                // Call API
+                string responseJson = await SendRawPromptAsync(systemPrompt, userPrompt, 200, 0.7f, 0.95f);
+
+                // Clean response if md code blocks exist
+                if (responseJson.Contains("```json"))
+                {
+                    responseJson = responseJson.Replace("```json", "").Replace("```", "").Trim();
+                }
+                else if (responseJson.Contains("```"))
+                {
+                    responseJson = responseJson.Replace("```", "").Trim();
+                }
+
+                // Parse JSON
+                using (JsonDocument doc = JsonDocument.Parse(responseJson))
+                {
+                    string title = "Diary Entry";
+                    string content = "...";
+
+                    if (doc.RootElement.TryGetProperty("title", out JsonElement titleEl))
+                        title = titleEl.GetString() ?? "Diary Entry";
+
+                    if (doc.RootElement.TryGetProperty("content", out JsonElement contentEl))
+                        content = contentEl.GetString() ?? "...";
+
+                    return (title, content);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"[GeminiService] Diary Generation Error: {e.Message}");
+                // If JSON fails, fallback to raw text if it looks like content
+                return ("Diary Entry", "Could not generate structured diary entry.");
             }
         }
     }
