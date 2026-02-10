@@ -82,21 +82,14 @@ namespace LifeSim
 
         public static void Initialize()
         {
-            if (!System.IO.Directory.Exists("Tilesets"))
-            {
-                System.IO.Directory.CreateDirectory("Tilesets");
-            }
-
+            // Legacy Tileset loading removed as per user request
             string tilesetPath = "Tilesets/master.png";
-
-            if (!System.IO.File.Exists(tilesetPath))
+            // Check if exists before loading to avoid errors
+            if (System.IO.File.Exists(tilesetPath))
             {
-                Image img = Raylib.GenImageChecked(64, 64, 8, 8, Color.White, Color.DarkGray);
-                Raylib.ExportImage(img, tilesetPath);
-                Raylib.UnloadImage(img);
+                MasterTileset = Raylib.LoadTexture(tilesetPath);
             }
-
-            MasterTileset = Raylib.LoadTexture(tilesetPath);
+            // Else MasterTileset.Id will be 0, which is fine as we don't draw tiles anymore.
 
             // Define Scenes
             // Debug Room
@@ -109,7 +102,7 @@ namespace LifeSim
             kitchen.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             // Living Room
-            SceneData livingRoom = new SceneData("Living Room", "Tilesets/Living_room.png", "Tilesets/interaction Layer_Living_room.png", new Vector2(4, 5), 1);
+            SceneData livingRoom = new SceneData("Living Room", "Scene_Backgrounds/Living_Room_background.jpg", "Tilesets/interaction Layer_Living_room.png", new Vector2(4, 5), 1);
             livingRoom.NPCs.Add(new NPCSpawnData(9, 4, "Boogie", "[No Response].", Path.Combine("NPC_Data", "Visual Novel Images", "MC", "main_char_full_body.png"), Path.Combine("NPC_Data", "Character_Sheets", "boogie_sprite_sheet.png"), 1.0f));
 
             Scenes.Add(debugRoom);
@@ -120,7 +113,7 @@ namespace LifeSim
             Metatiles["Rug"] = new Metatile(2, 2, new int[] { 18, 19, 26, 27 });
         }
 
-        public static void LoadScene(int sceneIndex, Player? player = null, List<NPC>? npcs = null)
+        public static void LoadScene(int sceneIndex, List<NPC>? npcs = null)
         {
             if (sceneIndex < 0 || sceneIndex >= Scenes.Count) return;
 
@@ -133,8 +126,13 @@ namespace LifeSim
                 Raylib.UnloadTexture(RoomBackground);
                 RoomBackground.Id = 0;
             }
+            else
+            {
+                // Texture ID 0 indicates no texture
+                RoomBackground.Id = 0;
+            }
 
-            // Unload Interaction Layer Logic
+            // Unload Interaction Layer Logic (Keep for now if reused for click zones)
             InteractionLayerLogic.Unload();
 
             if (HasForeground)
@@ -147,6 +145,7 @@ namespace LifeSim
             if (System.IO.File.Exists(data.BgPath))
             {
                 RoomBackground = Raylib.LoadTexture(data.BgPath);
+                // Grid dimensions are less relevant now but keep for any legacy logic
                 GridWidth = RoomBackground.Width / TileSize;
                 GridHeight = RoomBackground.Height / TileSize;
             }
@@ -184,25 +183,10 @@ namespace LifeSim
                 }
             }
 
-            // Position Player if provided
-            if (player != null)
-            {
-                player.GridX = (int)data.PlayerSpawn.X;
-                player.GridY = (int)data.PlayerSpawn.Y;
-            }
+            // No Player positioning needed
 
-            // Resize Grid
+            // Resize Grid (Legacy)
             RoomGrid = new int[GridWidth, GridHeight];
-
-            // Initialize Grid (walls logic is rudimentary here, mostly relies on visual BG now)
-            for (int x = 0; x < GridWidth; x++)
-            {
-                for (int y = 0; y < GridHeight; y++)
-                {
-                    // Clear grid
-                    RoomGrid[x, y] = 0;
-                }
-            }
         }
 
         public static bool IsWalkable(int gridX, int gridY)
@@ -260,94 +244,70 @@ namespace LifeSim
             }
         }
 
-        public static void DrawBackground()
+        // Render the scene background and NPCs
+        public static void DrawStaticScene(List<NPC> npcs)
         {
-            // If we have a custom BG, draw it
-            if (RoomBackground.Id != 0)
+            int screenW = Raylib.GetScreenWidth();
+            int screenH = Raylib.GetScreenHeight();
+
+            // 1. Draw Background
+            if (RoomBackground.Id == 0)
             {
-                // Draw it scaled 4x like everything else
-                int scale = 4;
-                Rectangle source = new Rectangle(0, 0, RoomBackground.Width, RoomBackground.Height);
-                Rectangle dest = new Rectangle(0, 0, RoomBackground.Width * scale, RoomBackground.Height * scale);
-                // Draw white (un-tinted)
-                Raylib.DrawTexturePro(RoomBackground, source, dest, Vector2.Zero, 0f, Color.White);
+                // Fallback if texture missing
+                Raylib.ClearBackground(new Color(20, 20, 30, 255));
+                Raylib.DrawText("No Background Loaded", screenW / 2 - 100, screenH / 2, 20, Color.White);
             }
             else
             {
-                // Fallback: Draw Rectangle
-
+                Rectangle dest = new Rectangle(0, 0, screenW, screenH);
+                Rectangle source = new Rectangle(0, 0, RoomBackground.Width, RoomBackground.Height);
+                Raylib.DrawTexturePro(RoomBackground, source, dest, Vector2.Zero, 0f, Color.White);
             }
-        }
 
-        public static void DrawRoom()
-        {
-            if (RoomBackground.Id != 0)
+            // 2. Draw NPCs
+            // Center the NPC in the screen
+            if (npcs != null && npcs.Count > 0)
             {
-                // Debug Room Special Drawing
-                if (CurrentSceneIndex == 0)
+                // Find "Boogie" or just use the first one
+                NPC activeNPC = npcs.Find(n => n.Name == "Boogie");
+                if (activeNPC == null && npcs.Count > 0) activeNPC = npcs[0];
+
+                if (activeNPC != null)
                 {
-                    int debugScale = 4;
-                    int debugTileSize = TileSystem.TileSize * debugScale;
-                    // Draw Red Exit Tile at (5, 5)
-                    Raylib.DrawRectangle(5 * debugTileSize, 5 * debugTileSize, debugTileSize, debugTileSize, new Color(255, 0, 0, 150));
+                    // Scale NPC up since resolution is higher
+
+                    // We need to access NPC sprite or draw method.
+                    // NPC.Draw takes a SpriteSheet... which was Player's.
+                    // Wait, NPC.cs has its own sprite? No, it uses 'player.SpriteSheet' in the old code?
+                    // Let's check NPC.cs rendering.
+                    // Actually, NPC.Draw(Texture2D spritesheet) was used.
+                    // We need to ensure we have a texture to draw.
+                    // If NPC has its own texture loaded (it should), use that.
+                    // The old code passed 'player.SpriteSheet'. We deleted Player.
+                    // We need to fix NPC.cs to manage its own texture or pass a shared one.
+                    // For now, let's assume we can fix NPC.Draw later or here.
+                    // Let's modify NPC.cs to hold its texture if it doesn't? 
+                    // NPCSpawnData had 'SpritePath'.
+
+                    // Let's temporarily comment out NPC drawing here until we fix NPC.cs 
+                    // OR try to draw it if it has a texture.
+                    // Checking NPC.cs content (from memory/previous files): 
+                    // It had 'Texture2D spriteSheet' as a field? No, it passed it in Draw.
+                    // We need to give it a texture.
+
+                    // Allow NPC to handle its own drawing but we need to pass a texture.
+                    // Let's load the common sprite sheet in TileSystem or Engine and pass it?
+                    // Or better, let NPC load its own. 
+
+                    // Draw NPC
+                    // Anchor at bottom of screen (ScreenH). 
+                    // The UI panel (Bottom 30%) will cover the lower part, standard VN style.
+
+                    Vector2 shake = UISystem.GetShakeOffset();
+                    activeNPC.DrawStatic(screenW / 2 + (int)shake.X, screenH + (int)shake.Y, 1.0f);
                 }
-                return;
-            }
-
-            int scale = 4;
-            int scaledTileSize = TileSystem.TileSize * scale;
-
-            int tilesPerRow = MasterTileset.Width / TileSize;
-
-            for (int x = 0; x < GridWidth; x++)
-            {
-                for (int y = 0; y < GridHeight; y++)
-                {
-                    int tileIndex = RoomGrid[x, y];
-
-                    int tx = (tileIndex % tilesPerRow) * TileSize;
-                    int ty = (tileIndex / tilesPerRow) * TileSize;
-
-                    Rectangle source = new Rectangle(tx, ty, TileSize, TileSize);
-                    Rectangle dest = new Rectangle(x * scaledTileSize, y * scaledTileSize, scaledTileSize, scaledTileSize);
-
-                    Raylib.DrawTexturePro(MasterTileset, source, dest, Vector2.Zero, 0f, Color.White);
-                }
             }
         }
 
-
-        public static void DrawForeground()
-        {
-            if (!HasForeground) return;
-
-            int scale = 4;
-            Rectangle source = new Rectangle(0, 0, ForegroundTexture.Width, ForegroundTexture.Height);
-            Rectangle dest = new Rectangle(0, 0, ForegroundTexture.Width * scale, ForegroundTexture.Height * scale);
-            Raylib.DrawTexturePro(ForegroundTexture, source, dest, Vector2.Zero, 0f, Color.White);
-        }
-
-
-        public static void DrawGrid()
-        {
-            if (!ShowGrid) return;
-
-            int scale = 4;
-            int scaledTileSize = TileSystem.TileSize * scale;
-
-            Color gridColor = new Color(0, 255, 0, 100); // Semi-transparent Green
-
-            // Vertical Lines
-            for (int i = 0; i <= GridWidth; i++)
-            {
-                Raylib.DrawLine(i * scaledTileSize, 0, i * scaledTileSize, GridHeight * scaledTileSize, gridColor);
-            }
-
-            // Horizontal Lines
-            for (int j = 0; j <= GridHeight; j++)
-            {
-                Raylib.DrawLine(0, j * scaledTileSize, GridWidth * scaledTileSize, j * scaledTileSize, gridColor);
-            }
-        }
     }
 }

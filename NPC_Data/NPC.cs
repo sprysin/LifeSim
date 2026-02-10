@@ -21,8 +21,6 @@ namespace LifeSim
 
 
         // Animation State
-        private enum Direction { Down = 0, Left = 1, Right = 2, Up = 3 }
-        private Direction currentDir = Direction.Down;
 
         // Sprite Sheet Details
         private const int GapX = 1;
@@ -42,17 +40,6 @@ namespace LifeSim
         public ConversationManager? Conversation { get; private set; }
         public bool IsWaitingForAI { get; set; } = false;
         public string? PendingAIResponse { get; set; } = null;
-
-        // AI State
-        private enum AIState { Idle, Walking }
-        private AIState currentState = AIState.Idle;
-        private float stateTimer = 0f;
-
-        // Wandering Params
-        private int tilesToWalk = 0;
-        private float walkStepTimer = 0f;
-        private const float WalkStepInterval = 0.4f; // Time to move 1 tile (slower than player for deliberate feel)
-        private System.Random rng = new System.Random();
 
         public string CurrentSkin = "Skin0";
         // Static tracker for exclusive following
@@ -225,233 +212,80 @@ namespace LifeSim
             finally { IsWaitingForAI = false; }
         }
 
-        public void Update(float dt, Player? player = null)
+        public void Update(float dt)
         {
-            stateTimer -= dt;
-
-            // Follow Logic overrides normal behavior
-            if (IsFollowing && player != null)
-            {
-                HandleFollowBehavior(dt, player);
-                return;
-            }
-
-            // Normal AI State Machine
-            if (currentState == AIState.Idle)
-            {
-                if (stateTimer <= 0)
-                {
-                    StartWander();
-                }
-            }
-            else if (currentState == AIState.Walking)
-            {
-                UpdateMovement(dt);
-            }
-
             UpdateAnimation(dt);
-        }
-
-        private void HandleFollowBehavior(float dt, Player player)
-        {
-            currentState = AIState.Walking; // Always animate walking when following
-
-            var (targetX, targetY) = player.GetBehindPosition();
-            int dist = Math.Abs(targetX - GridX) + Math.Abs(targetY - GridY);
-
-            if (dist > 0)
-            {
-                walkStepTimer -= dt;
-                if (walkStepTimer <= 0)
-                {
-                    walkStepTimer = WalkStepInterval;
-                    int dx = targetX - GridX;
-                    int dy = targetY - GridY;
-
-                    // Prioritize larger distance axis
-                    int stepX = 0, stepY = 0;
-                    if (Math.Abs(dx) > Math.Abs(dy))
-                    {
-                        stepX = Math.Sign(dx);
-                        currentDir = stepX > 0 ? Direction.Right : Direction.Left;
-                    }
-                    else
-                    {
-                        stepY = Math.Sign(dy);
-                        currentDir = stepY > 0 ? Direction.Down : Direction.Up;
-                    }
-
-                    int nextX = GridX + stepX;
-                    int nextY = GridY + stepY;
-
-                    // Check bounds and avoid stepping on player
-                    if (TileSystem.IsWalkable(nextX, nextY) && !(nextX == player.GridX && nextY == player.GridY))
-                    {
-                        GridX = nextX;
-                        GridY = nextY;
-                    }
-                }
-            }
-            else
-            {
-                // Face Player
-                if (player.GridX > GridX) currentDir = Direction.Right;
-                else if (player.GridX < GridX) currentDir = Direction.Left;
-                else if (player.GridY > GridY) currentDir = Direction.Down;
-                else if (player.GridY < GridY) currentDir = Direction.Up;
-
-                // Idle animation
-                currentState = AIState.Idle; // Visual only, logically obscure
-                currentFrame = 0;
-            }
-
-            // Following uses special animation logic that ignores stateTimer
-            if (currentState == AIState.Walking) UpdateAnimation(dt);
-        }
-
-        private void StartWander()
-        {
-            currentState = AIState.Walking;
-
-            int dir = rng.Next(0, 4);
-            currentDir = (Direction)dir;
-            tilesToWalk = rng.Next(1, 6);
-            walkStepTimer = 0f; // Start immediately
-        }
-
-        private void UpdateMovement(float dt)
-        {
-            walkStepTimer -= dt;
-            if (walkStepTimer <= 0)
-            {
-                walkStepTimer = WalkStepInterval;
-
-                int dx = 0, dy = 0;
-                switch (currentDir)
-                {
-                    case Direction.Up: dy = -1; break;
-                    case Direction.Down: dy = 1; break;
-                    case Direction.Left: dx = -1; break;
-                    case Direction.Right: dx = 1; break;
-                }
-
-                if (AttemptStep(dx, dy))
-                {
-                    tilesToWalk--;
-                    if (tilesToWalk <= 0) SwitchToIdle();
-                }
-                else
-                {
-                    SwitchToIdle(); // Blocked
-                }
-            }
-        }
-
-        private bool AttemptStep(int dx, int dy)
-        {
-            int newX = GridX + dx;
-            int newY = GridY + dy;
-
-            if (TileSystem.IsWalkable(newX, newY))
-            {
-                GridX = newX;
-                GridY = newY;
-                return true;
-            }
-            return false;
         }
 
         private void UpdateAnimation(float dt)
         {
-            if (currentState == AIState.Walking)
+            // Just idle animation or simple "breathing"
+            frameTimer += dt;
+            if (frameTimer >= FrameSpeed)
             {
-                frameTimer += dt;
-                if (frameTimer >= FrameSpeed)
-                {
-                    currentFrame = (currentFrame + 1) % 4;
-                    frameTimer = 0;
-                }
-            }
-            else
-            {
-                currentFrame = 0;
+                currentFrame = (currentFrame + 1) % 4;
                 frameTimer = 0;
             }
         }
 
-        private void SwitchToIdle()
+        public Texture2D PortraitTexture;
+        private string loadedPortraitPath = "";
+
+        public void DrawStatic(int centerX, int centerY, float scale)
         {
-            currentState = AIState.Idle;
-            // Wait 2-5 seconds
-            stateTimer = (float)rng.NextDouble() * 3.0f + 2.0f;
-            currentFrame = 0;
-        }
+            string currentPath = GetCurrentPortraitPath();
 
-        public void Draw(Texture2D sheet)
-        {
-            // Assuming sheet is the 16x4 character sheet (standard or boogie)
-            // Use constants defined in class
-
-            // Calculate Frame Size
-            int frameWidth = (sheet.Width - (SheetColumns - 1) * GapX) / SheetColumns;
-            int frameHeight = (sheet.Height - (SheetRows - 1) * GapY) / SheetRows;
-
-            int scale = 4;
-            float scaledTileSize = TileSystem.TileSize * scale;
-
-            Texture2D textureToDraw = sheet;
-
-            // Check for custom sprite
-            if (hasCustomSprite)
+            // Load/Update Texture if needed
+            if (currentPath != loadedPortraitPath)
             {
-                textureToDraw = customSprite;
+                if (PortraitTexture.Id != 0) Raylib.UnloadTexture(PortraitTexture);
 
-                // Adjust frame calculations for custom sprite if it matches the sheet layout
-                // If custom sprite is big (like Boogie's sheet), recalculate frameWidth/Height based on IT
-                if (customSprite.Width > 64) // Arbitrary threshold to distinguish single sprite vs sheet
+                if (System.IO.File.Exists(currentPath))
                 {
-                    frameWidth = (customSprite.Width - (SheetColumns - 1) * GapX) / SheetColumns;
-                    frameHeight = (customSprite.Height - (SheetRows - 1) * GapY) / SheetRows;
+                    PortraitTexture = Raylib.LoadTexture(currentPath);
+                    loadedPortraitPath = currentPath;
+                    Raylib.SetTextureFilter(PortraitTexture, TextureFilter.Bilinear); // High Res needs bilinear
                 }
                 else
                 {
-                    // Small sprite (single frame fallback)
-                    frameWidth = customSprite.Width;
-                    frameHeight = customSprite.Height;
-                    // Force Idle
-                    currentFrame = 0;
+                    loadedPortraitPath = ""; // Failed
                 }
             }
 
-            int srcX = currentFrame * (frameWidth + GapX);
-            // Use currentDir enum cast to int
-            int srcY = (int)currentDir * (frameHeight + GapY);
+            if (PortraitTexture.Id != 0)
+            {
+                // Draw Centered
+                // Scale logic: Fit to screen height logic or just use global scale?
+                // User said "High Res". Let's assume 1.0f scale is good if the image is 1080p-ish.
+                // Or use the passed 'scale' param which was ~4.0 for pixel art. 
+                // For VN images (likely 500-1000px height), a scale of 1.0f or fit-to-height is better.
+                // Let's override the 'scale' parameter for Portraits to be auto-fit.
 
-            // Safety check for source rectangle
-            if (srcX + frameWidth > textureToDraw.Width) srcX = 0;
-            if (srcY + frameHeight > textureToDraw.Height) srcY = 0;
+                float drawScale = 1.0f;
+                // Auto-fit to 80% screen height?
+                int screenH = Raylib.GetScreenHeight();
+                float maxH = screenH * 0.8f;
+                if (PortraitTexture.Height > maxH)
+                {
+                    drawScale = maxH / (float)PortraitTexture.Height;
+                }
 
-            Rectangle source = new Rectangle(srcX, srcY, frameWidth, frameHeight);
+                float finalW = PortraitTexture.Width * drawScale;
+                float finalH = PortraitTexture.Height * drawScale;
 
-            // Calculate Destination
-            // Use "cookie cutter" logic for aspect ratio preservation
-            // Reverted to 2x scale
-            float drawScale = ((float)scale / 2.0f) * Scale;
-            float finalW = frameWidth * drawScale;
-            float finalH = frameHeight * drawScale;
+                // Position: Center X, Bottom Y (on the panel or screen bottom?)
+                // User said "Bottom screen being a textbox... so text appears...".
+                // Portrait should probably stand *behind* the textbox or just above it.
+                // Let's anchor to Bottom-Center of screen, but shifted up by Panel Height?
+                // Or just Center-Center? 
+                // "boogie in the middle of the screen"
+                // Let's use the passed Y as the anchor.
+                Rectangle source = new Rectangle(0, 0, PortraitTexture.Width, PortraitTexture.Height);
+                Rectangle dest = new Rectangle(centerX - finalW / 2, centerY - finalH, finalW, finalH);
 
-            // Draw at grid position (Bottom-Anchored)
-            Rectangle dest = new Rectangle(GridX * scaledTileSize, (GridY + 1) * scaledTileSize - finalH, finalW, finalH);
-
-            Raylib.DrawTexturePro(textureToDraw, source, dest, Vector2.Zero, 0f, Color.White);
+                Raylib.DrawTexturePro(PortraitTexture, source, dest, Vector2.Zero, 0f, Color.White);
+            }
         }
 
-        public bool IsPlayerNearby(Player p)
-        {
-            int dx = System.Math.Abs(p.GridX - GridX);
-            int dy = System.Math.Abs(p.GridY - GridY);
-
-            return (dx + dy) <= 1;
-        }
     }
 }

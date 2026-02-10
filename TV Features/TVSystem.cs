@@ -68,17 +68,24 @@ namespace LifeSim
             {
                 if (selection == 0) // 20 Questions
                 {
-                    if (NPC.ActiveFollower != null)
+                    // Allow playing even if not following. Pick Boogie if no one is following.
+                    NPC? opponent = NPC.ActiveFollower;
+                    if (opponent == null)
                     {
-                        // Start 20 Questions with the following NPC
+                        opponent = Engine.ActiveNPCs.Find(n => n.Name == "Boogie");
+                    }
+
+                    if (opponent != null)
+                    {
+                        // Start 20 Questions
                         TwentyQuestionsUI.Reset();
-                        MinigameManager.StartMinigame(MinigameType.TwentyQuestions, NPC.ActiveFollower);
+                        MinigameManager.StartMinigame(MinigameType.TwentyQuestions, opponent);
                         Close();
                         return;
                     }
                     else
                     {
-                        errorMessage = "Someone must follow you to play";
+                        errorMessage = "No one available to play.";
                         errorTimer = ErrorDisplayTime;
                     }
                 }

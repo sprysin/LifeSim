@@ -43,6 +43,14 @@ namespace LifeSim
         private static Task<string?>? pendingAITask = null;
         private static bool isActionMode = false; // Track if input is an action
 
+        // Text Layout Constants (High Res 1600x900)
+        private const int DialogueFontSize = 32;
+        private const float TextSpacing = 2.5f;
+        private const int MaxTextWidth = 1100; // 1600 * 0.75 - Padding
+        private const int MaxLinesPerBox = 4;
+        private const int MaxInputLength = 255;
+        private const int LineHeightPadding = 8;
+
         public static void OpenDialogue(string name, string text, string portraitPath = "")
         {
             OpenDialogue(name, text, portraitPath, null);
@@ -267,7 +275,26 @@ namespace LifeSim
 
             if (showOptionsMenu)
             {
-                // Options menu navigation
+                // Mouse Interaction
+                Vector2 mousePos = Raylib.GetMousePosition();
+
+                if (Raylib.CheckCollisionPointRec(mousePos, OptionRespondRect))
+                {
+                    optionSelection = 0;
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left)) HandleOptionSelection(0);
+                }
+                else if (Raylib.CheckCollisionPointRec(mousePos, OptionActionRect))
+                {
+                    optionSelection = 1;
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left)) HandleOptionSelection(1);
+                }
+                else if (Raylib.CheckCollisionPointRec(mousePos, OptionThoughtsRect))
+                {
+                    optionSelection = 2;
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left)) HandleOptionSelection(2);
+                }
+
+                // Options menu navigation (Keyboard)
                 if (Raylib.IsKeyPressed(KeyboardKey.Up))
                 {
                     optionSelection--;
@@ -294,7 +321,8 @@ namespace LifeSim
             else
             {
                 // Normal dialogue mode
-                if (Raylib.IsKeyPressed(KeyboardKey.X))
+                // Allow Mouse Click or X to advance
+                if (Raylib.IsKeyPressed(KeyboardKey.X) || Raylib.IsMouseButtonPressed(MouseButton.Left))
                 {
                     if (charIndex < currentText.Length)
                     {
@@ -471,7 +499,8 @@ namespace LifeSim
             foreach (var word in words)
             {
                 string testLine = currentLine + (currentLine.Length > 0 ? " " : "") + word;
-                Vector2 size = Raylib.MeasureTextEx(FontHuge, testLine, fontSize, spacing);
+                // Use FontMedium for Dialogue Text
+                Vector2 size = Raylib.MeasureTextEx(FontMedium, testLine, fontSize, spacing);
 
                 if (size.X > maxWidth)
                 {

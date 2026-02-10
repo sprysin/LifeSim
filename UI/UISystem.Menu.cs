@@ -8,36 +8,52 @@ namespace LifeSim
         // Menu State
         private static float scrollTimer = 0f;
 
-        public static void DrawHomeMenu(int selection)
+        public static (int, bool) DrawHomeMenu(int selection)
         {
             int screenW = Raylib.GetScreenWidth();
             int screenH = Raylib.GetScreenHeight();
+            bool clicked = false;
 
             // 1. Draw Procedural Background
             DrawMenuBackground();
 
-            // 2. Render UI to Buffer
-            Raylib.BeginTextureMode(UIBuffer);
-            Raylib.ClearBackground(Color.Blank);
-
             string[] options = { "Start", "Debug Room", "Quit" };
-            int startY = 60;
-            int spacing = 25;
+
+            // Layout
+            int startY = screenH / 2;
+            int spacing = 80;
+            int btnW = 400;
+            int btnH = 60;
 
             // Draw Title
-            Vector2 titleSize = Raylib.MeasureTextEx(FontTitle, "LIFESIM", 32, 0);
-            Raylib.DrawTextEx(FontTitle, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2 + 2, 22), 32, 0, new Color(100, 100, 100, 255)); // Shadow
-            Raylib.DrawTextEx(FontTitle, "LIFESIM", new Vector2((VirtualWidth - titleSize.X) / 2, 20), 32, 0, Color.White);
+            string title = "LIFESIM";
+            float titleSizeVal = 96;
+            float titleSpacing = 4;
+            Vector2 titleSize = Raylib.MeasureTextEx(FontTitle, title, titleSizeVal, titleSpacing);
+            Vector2 titlePos = new Vector2((screenW - titleSize.X) / 2, screenH / 4);
 
+            // Unsmoosh Title
+            Raylib.DrawTextEx(FontTitle, title, new Vector2(titlePos.X + 10, titlePos.Y + 10), titleSizeVal, titleSpacing, new Color(100, 100, 100, 255)); // Shadow
+            Raylib.DrawTextEx(FontTitle, title, titlePos, titleSizeVal, titleSpacing, Color.White);
+
+            Vector2 mousePos = Raylib.GetMousePosition();
 
             for (int i = 0; i < options.Length; i++)
             {
-                bool isSelected = (i == selection);
                 string text = options[i];
+                Rectangle btnRect = new Rectangle((screenW - btnW) / 2, startY + (i * spacing), btnW, btnH);
 
-                int btnW = 120;
-                int btnH = 20;
-                Rectangle btnRect = new Rectangle((VirtualWidth - btnW) / 2, startY + (i * spacing), btnW, btnH);
+                // Mouse Interaction
+                if (Raylib.CheckCollisionPointRec(mousePos, btnRect))
+                {
+                    selection = i;
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+                    {
+                        clicked = true;
+                    }
+                }
+
+                bool isSelected = (i == selection);
 
                 // Modern Button UI (Black/White High Contrast)
                 Color btnColor = isSelected ? Color.White : new Color(0, 0, 0, 200);
@@ -47,36 +63,30 @@ namespace LifeSim
                 // Shadow
                 if (!isSelected)
                 {
-                    Raylib.DrawRectangle((int)btnRect.X + 2, (int)btnRect.Y + 2, (int)btnRect.Width, (int)btnRect.Height, new Color(0, 0, 0, 100));
+                    Raylib.DrawRectangle((int)btnRect.X + 4, (int)btnRect.Y + 4, (int)btnRect.Width, (int)btnRect.Height, new Color(0, 0, 0, 100));
                 }
 
                 // Base
                 Raylib.DrawRectangleRec(btnRect, btnColor);
+                Raylib.DrawRectangleLinesEx(btnRect, 2, borderColor);
 
-                // Border
-                Raylib.DrawRectangleLinesEx(btnRect, 1, borderColor);
-
-                // Text drawn to Buffer here is acceptable for Title Menu/Buttons as they are large
-                // Keeping Title Menu simpler to avoid logic duplication for now unless User complains
-                Vector2 textSize = Raylib.MeasureTextEx(FontSmall, text, 12, 0);
+                // Text
+                float fontSize = 40;
+                float textSpacing = 4; // Unsmoosh
+                Vector2 textSize = Raylib.MeasureTextEx(FontLarge, text, fontSize, textSpacing);
                 Vector2 textPos = new Vector2(btnRect.X + (btnRect.Width - textSize.X) / 2, btnRect.Y + (btnRect.Height - textSize.Y) / 2);
 
-                Raylib.DrawTextEx(FontSmall, text, textPos, 12, 0, textColor);
+                Raylib.DrawTextEx(FontLarge, text, textPos, fontSize, textSpacing, textColor);
 
                 if (isSelected)
                 {
-                    Raylib.DrawTextEx(FontSmall, ">", new Vector2(btnRect.X - 15, btnRect.Y + 4), 12, 0, Color.White);
-                    Raylib.DrawTextEx(FontSmall, "<", new Vector2(btnRect.X + btnRect.Width + 5, btnRect.Y + 4), 12, 0, Color.White);
-
+                    float arrowSize = 40;
+                    Raylib.DrawTextEx(FontLarge, ">", new Vector2(btnRect.X - 40, btnRect.Y + 10), arrowSize, textSpacing, Color.White);
+                    Raylib.DrawTextEx(FontLarge, "<", new Vector2(btnRect.X + btnRect.Width + 20, btnRect.Y + 10), arrowSize, textSpacing, Color.White);
                 }
             }
 
-            Raylib.EndTextureMode();
-
-            // 3. Draw Buffer to Screen
-            Rectangle dest = new Rectangle(0, 0, screenW, screenH);
-            Rectangle flipSrc = new Rectangle(0, 0, UIBuffer.Texture.Width, -UIBuffer.Texture.Height);
-            Raylib.DrawTexturePro(UIBuffer.Texture, flipSrc, dest, Vector2.Zero, 0f, Color.White);
+            return (selection, clicked);
         }
 
         private static void DrawMenuBackground()
@@ -109,35 +119,45 @@ namespace LifeSim
             }
         }
 
-        public static void DrawDebugLocationMenu(int selection)
+        public static (int, bool) DrawDebugLocationMenu(int selection)
         {
             int screenW = Raylib.GetScreenWidth();
             int screenH = Raylib.GetScreenHeight();
+            bool clicked = false;
 
             // Draw background
             DrawMenuBackground();
 
-            // Render to buffer
-            Raylib.BeginTextureMode(UIBuffer);
-            Raylib.ClearBackground(Color.Blank);
-
             // Title
-            Vector2 titleSize = Raylib.MeasureTextEx(FontMedium, "Choose Location", 24, 0);
-            Raylib.DrawTextEx(FontMedium, "Choose Location", new Vector2((VirtualWidth - titleSize.X) / 2, 20), 24, 0, Color.White);
+            string title = "Choose Location";
+            Vector2 titleSize = Raylib.MeasureTextEx(FontMedium, title, 32, 2);
+            Raylib.DrawTextEx(FontMedium, title, new Vector2((screenW - titleSize.X) / 2, 60), 32, 2, Color.White);
 
-            // Options
             string[] options = { "Debug Room", "Kitchen" };
-            int startY = 60;
-            int spacing = 25;
+
+            // Layout
+            int startY = 150;
+            int spacing = 80;
+            int btnW = 300;
+            int btnH = 50;
+
+            Vector2 mousePos = Raylib.GetMousePosition();
 
             for (int i = 0; i < options.Length; i++)
             {
-                bool isSelected = (i == selection);
                 string text = options[i];
+                Rectangle btnRect = new Rectangle((screenW - btnW) / 2, startY + (i * spacing), btnW, btnH);
 
-                int btnW = 120;
-                int btnH = 20;
-                Rectangle btnRect = new Rectangle((VirtualWidth - btnW) / 2, startY + (i * spacing), btnW, btnH);
+                if (Raylib.CheckCollisionPointRec(mousePos, btnRect))
+                {
+                    selection = i;
+                    if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+                    {
+                        clicked = true;
+                    }
+                }
+
+                bool isSelected = (i == selection);
 
                 Color btnColor = isSelected ? Color.White : new Color(0, 0, 0, 200);
                 Color textColor = isSelected ? Color.Black : Color.White;
@@ -149,29 +169,25 @@ namespace LifeSim
                 }
 
                 Raylib.DrawRectangleRec(btnRect, btnColor);
-                Raylib.DrawRectangleLinesEx(btnRect, 1, borderColor);
+                Raylib.DrawRectangleLinesEx(btnRect, 2, borderColor);
 
-                Vector2 textSize = Raylib.MeasureTextEx(FontSmall, text, 12, 0);
+                Vector2 textSize = Raylib.MeasureTextEx(FontSmall, text, 20, 2);
                 Vector2 textPos = new Vector2(btnRect.X + (btnRect.Width - textSize.X) / 2, btnRect.Y + (btnRect.Height - textSize.Y) / 2);
-                Raylib.DrawTextEx(FontSmall, text, textPos, 12, 0, textColor);
+                Raylib.DrawTextEx(FontSmall, text, textPos, 20, 2, textColor);
 
                 if (isSelected)
                 {
-                    Raylib.DrawTextEx(FontSmall, ">", new Vector2(btnRect.X - 15, btnRect.Y + 4), 12, 0, Color.White);
-                    Raylib.DrawTextEx(FontSmall, "<", new Vector2(btnRect.X + btnRect.Width + 5, btnRect.Y + 4), 12, 0, Color.White);
+                    Raylib.DrawTextEx(FontSmall, ">", new Vector2(btnRect.X - 20, btnRect.Y + 15), 20, 0, Color.White);
+                    Raylib.DrawTextEx(FontSmall, "<", new Vector2(btnRect.X + btnRect.Width + 10, btnRect.Y + 15), 20, 0, Color.White);
                 }
             }
 
             // Instructions
-            Vector2 instrSize = Raylib.MeasureTextEx(FontTiny, "ESC to go back", 10, 0);
-            Raylib.DrawTextEx(FontTiny, "ESC to go back", new Vector2((VirtualWidth - instrSize.X) / 2, VirtualHeight - 20), 10, 0, new Color(150, 150, 150, 255));
+            string instr = "ESC to go back";
+            Vector2 instrSize = Raylib.MeasureTextEx(FontTiny, instr, 20, 0);
+            Raylib.DrawTextEx(FontTiny, instr, new Vector2((screenW - instrSize.X) / 2, screenH - 40), 20, 0, new Color(150, 150, 150, 255));
 
-            Raylib.EndTextureMode();
-
-            // Draw to screen
-            Rectangle dest = new Rectangle(0, 0, screenW, screenH);
-            Rectangle flipSrc = new Rectangle(0, 0, UIBuffer.Texture.Width, -UIBuffer.Texture.Height);
-            Raylib.DrawTexturePro(UIBuffer.Texture, flipSrc, dest, Vector2.Zero, 0f, Color.White);
+            return (selection, clicked);
         }
     }
 }
