@@ -155,6 +155,13 @@ namespace LifeSim
                 return null;
             }
 
+            // Check Diary
+            if (TileSystem.IsDiary(faceX, faceY))
+            {
+                DiarySystem.Open();
+                return null;
+            }
+
             // Check NPCs
             foreach (var npc in npcs)
             {
@@ -195,6 +202,21 @@ namespace LifeSim
                 case Direction.Right: faceX++; break;
             }
             return TileSystem.IsTV(faceX, faceY);
+        }
+
+        public bool IsFacingDiary()
+        {
+            int faceX = GridX;
+            int faceY = GridY;
+
+            switch (currentDir)
+            {
+                case Direction.Up: faceY--; break;
+                case Direction.Down: faceY++; break;
+                case Direction.Left: faceX--; break;
+                case Direction.Right: faceX++; break;
+            }
+            return TileSystem.IsDiary(faceX, faceY);
         }
 
         public void Draw()

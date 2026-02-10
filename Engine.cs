@@ -14,7 +14,8 @@ namespace LifeSim
             Dialogue,
             Terminal,
             TV,
-            Minigame20Questions
+            Minigame20Questions,
+            Diary
         }
 
         public static GameState CurrentState = GameState.Menu;
@@ -131,6 +132,10 @@ namespace LifeSim
                         {
                             CurrentState = GameState.TV;
                         }
+                        else if (DiarySystem.IsOpen)
+                        {
+                            CurrentState = GameState.Diary;
+                        }
                         else if (Raylib.IsKeyPressed(KeyboardKey.V))
                         {
                             // Resume Dialogue with Follower
@@ -175,6 +180,14 @@ namespace LifeSim
                         {
                             CurrentState = GameState.Exploring;
                         }
+                    }
+                }
+                else if (CurrentState == GameState.Diary)
+                {
+                    DiarySystem.Update();
+                    if (!DiarySystem.IsOpen)
+                    {
+                        CurrentState = GameState.Exploring;
                     }
                 }
                 else if (CurrentState == GameState.Minigame20Questions)
@@ -315,6 +328,10 @@ namespace LifeSim
                     else if (CurrentState == GameState.TV)
                     {
                         TVSystem.Draw();
+                    }
+                    else if (CurrentState == GameState.Diary)
+                    {
+                        DiarySystem.Draw();
                     }
                     else if (CurrentState == GameState.Minigame20Questions)
                     {

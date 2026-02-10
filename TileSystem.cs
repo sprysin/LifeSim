@@ -69,8 +69,7 @@ namespace LifeSim
         private static Dictionary<string, Metatile> Metatiles = new Dictionary<string, Metatile>();
 
         // Collision Image
-        private static Image InteractionLayer;
-        private static bool HasInteractionLayer = false;
+        // Interaction Logic moved to InteractionLayerLogic
 
         // Foreground Layer (rendered on top of player)
         private static Texture2D ForegroundTexture;
@@ -134,11 +133,10 @@ namespace LifeSim
                 Raylib.UnloadTexture(RoomBackground);
                 RoomBackground.Id = 0;
             }
-            if (HasInteractionLayer)
-            {
-                Raylib.UnloadImage(InteractionLayer);
-                HasInteractionLayer = false;
-            }
+
+            // Unload Interaction Layer Logic
+            InteractionLayerLogic.Unload();
+
             if (HasForeground)
             {
                 Raylib.UnloadTexture(ForegroundTexture);
@@ -153,14 +151,22 @@ namespace LifeSim
                 GridHeight = RoomBackground.Height / TileSize;
             }
 
-            // Load Interaction Layer
+            // Load Interaction Layer & Foreground
             if (!string.IsNullOrEmpty(data.InteractionPath) && System.IO.File.Exists(data.InteractionPath))
             {
-                InteractionLayer = Raylib.LoadImage(data.InteractionPath);
-                HasInteractionLayer = true;
+                InteractionLayerLogic.Load(data.InteractionPath, GridWidth, GridHeight);
 
-                // Extract Foreground Layer
-                ExtractForegroundLayer(data.BgPath);
+                // Get Foreground Texture from Logic
+                Texture2D fg = InteractionLayerLogic.GenerateForegroundTexture(data.BgPath);
+                if (fg.Id != 0)
+                {
+                    ForegroundTexture = fg;
+                    HasForeground = true;
+                }
+                else
+                {
+                    HasForeground = false;
+                }
             }
 
             // Reset NPCs if list provided
@@ -201,148 +207,36 @@ namespace LifeSim
 
         public static bool IsWalkable(int gridX, int gridY)
         {
-            // Noclip for Debug Room (CurrentSceneIndex == 0)
-            if (CurrentSceneIndex == 0) return true;
-
             // Grid Bounds Check
             if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight)
                 return false;
 
-            // Interaction Layer Check
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-
-            // Check for BLOCKED #ed1c5c (R:237, G:28, B:92)
-            if (pixelColor.R == 237 && pixelColor.G == 28 && pixelColor.B == 92)
-            {
-                return false;
-            }
-
-            // Check for TERMINAL #4DA6FFFF (Blocked)
-            if (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255)
-            {
-                return false;
-            }
-
-            // Check for TV #386cdb (Blocked)
-            if (pixelColor.R == 56 && pixelColor.G == 108 && pixelColor.B == 219)
-            {
-                return false;
-            }
-
-            // Check for DIARY #a8b6d3 (Blocked)
-            // R:168, G:182, B:211
-            if (pixelColor.R == 168 && pixelColor.G == 182 && pixelColor.B == 211)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private static Color GetInteractionColor(int gridX, int gridY)
-        {
-            if (!HasInteractionLayer) return Color.Blank;
-            if (gridX < 0 || gridX >= GridWidth || gridY < 0 || gridY >= GridHeight) return Color.Blank;
-
-            int pixelX = gridX * TileSize + (TileSize / 2);
-            int pixelY = gridY * TileSize + (TileSize / 2);
-
-            if (pixelX < InteractionLayer.Width && pixelY < InteractionLayer.Height)
-            {
-                return Raylib.GetImageColor(InteractionLayer, pixelX, pixelY);
-            }
-            return Color.Blank;
-        }
-
-        private static void ExtractForegroundLayer(string bgPath)
-        {
-            if (!HasInteractionLayer || !System.IO.File.Exists(bgPath))
-            {
-                HasForeground = false;
-                return;
-            }
-
-            // Load background image
-            Image bgImage = Raylib.LoadImage(bgPath);
-
-            // Create blank image for foreground (same size as background)
-            Image foregroundImage = Raylib.GenImageColor(bgImage.Width, bgImage.Height, Color.Blank);
-
-            // Scan interaction layer for foreground markers (#e4a209)
-            bool foundForeground = false;
-            for (int y = 0; y < InteractionLayer.Height && y < bgImage.Height; y++)
-            {
-                for (int x = 0; x < InteractionLayer.Width && x < bgImage.Width; x++)
-                {
-                    Color interactionPixel = Raylib.GetImageColor(InteractionLayer, x, y);
-
-                    // Check if pixel is foreground marker #e4a209 (R:228, G:162, B:9)
-                    if (interactionPixel.R == 228 && interactionPixel.G == 162 && interactionPixel.B == 9)
-                    {
-                        // Copy background pixel to foreground
-                        Color bgPixel = Raylib.GetImageColor(bgImage, x, y);
-                        Raylib.ImageDrawPixel(ref foregroundImage, x, y, bgPixel);
-                        foundForeground = true;
-                    }
-                }
-            }
-
-            // Only create texture if we found foreground pixels
-            if (foundForeground)
-            {
-                ForegroundTexture = Raylib.LoadTextureFromImage(foregroundImage);
-                HasForeground = true;
-            }
-            else
-            {
-                HasForeground = false;
-            }
-
-            // Cleanup
-            Raylib.UnloadImage(foregroundImage);
-            Raylib.UnloadImage(bgImage);
+            return InteractionLayerLogic.IsWalkable(gridX, gridY, CurrentSceneIndex);
         }
 
         public static bool IsTerminal(int gridX, int gridY)
         {
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-            // #4DA6FFFF -> R:77, G:166, B:255
-            return (pixelColor.R == 77 && pixelColor.G == 166 && pixelColor.B == 255);
+            return InteractionLayerLogic.IsTerminal(gridX, gridY);
         }
 
         public static bool IsTV(int gridX, int gridY)
         {
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-            // #386cdb -> R:56, G:108, B:219
-            return (pixelColor.R == 56 && pixelColor.G == 108 && pixelColor.B == 219);
+            return InteractionLayerLogic.IsTV(gridX, gridY);
         }
 
         public static bool IsDiary(int gridX, int gridY)
         {
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-            // #a8b6d3 -> R:168, G:182, B:211
-            return (pixelColor.R == 168 && pixelColor.G == 182 && pixelColor.B == 211);
+            return InteractionLayerLogic.IsDiary(gridX, gridY);
         }
 
         public static bool IsExit(int gridX, int gridY)
         {
-            // Special case for Debug Room (Scene 0) Red Tile at (5, 5)
-            if (CurrentSceneIndex == 0)
-            {
-                if (gridX == 5 && gridY == 5) return true;
-                return false;
-            }
-
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-            // #cc33cc -> R:204, G:51, B:204
-            return (pixelColor.R == 204 && pixelColor.G == 51 && pixelColor.B == 204);
+            return InteractionLayerLogic.IsExit(gridX, gridY, CurrentSceneIndex);
         }
 
         public static bool IsSitSpot(int gridX, int gridY)
         {
-            Color pixelColor = GetInteractionColor(gridX, gridY);
-            // #b3f237 -> R:179, G:242, B:55
-            return (pixelColor.R == 179 && pixelColor.G == 242 && pixelColor.B == 55);
+            return InteractionLayerLogic.IsSitSpot(gridX, gridY);
         }
 
         public static void PlaceMetatile(string name, int startX, int startY)
