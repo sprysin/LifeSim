@@ -32,7 +32,7 @@ namespace LifeSim
         private float frameTimer = 0f;
         private const float FrameSpeed = 0.15f;
 
-        public Queue<string> ConversationQueue = new Queue<string>();
+        public Queue<string> ConversationQueue = new();
 
         // LLM Integration
         public CharacterData? CharacterData { get; private set; }
